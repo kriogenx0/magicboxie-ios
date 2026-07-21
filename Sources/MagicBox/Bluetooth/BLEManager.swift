@@ -175,6 +175,47 @@ final class BLEManager: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - Importing a shared video file
+
+    /// Surfaced by the UI as a dismissible banner - shares arrive via a Share
+    /// Extension + URL handoff, with no other natural place to report status.
+    enum ShareImportStatus: Equatable {
+        case importing(title: String)
+        case succeeded(title: String)
+        case failed(title: String)
+    }
+
+    @Published private(set) var shareImportStatus: ShareImportStatus?
+
+    /// Uploads a video shared in from another app (Photos/Dropbox/Files),
+    /// unless a movie with the same title is already on the device. Requires
+    /// an HTTP route - BLE alone can't carry a whole video file.
+    func uploadMovieIfNeeded(fileURL: URL) async {
+        let title = fileURL.deletingPathExtension().lastPathComponent
+
+        guard movies.first(where: { $0.title == title }) == nil else {
+            shareImportStatus = .succeeded(title: title)
+            return
+        }
+        guard let client = deviceClient else {
+            shareImportStatus = .failed(title: title)
+            return
+        }
+
+        shareImportStatus = .importing(title: title)
+        do {
+            let uploaded = try await client.uploadMovie(filename: fileURL.lastPathComponent, fileURL: fileURL)
+            movies.append(Movie(id: uploaded.id, title: uploaded.title, durationSeconds: uploaded.durationSeconds))
+            shareImportStatus = .succeeded(title: title)
+        } catch {
+            shareImportStatus = .failed(title: title)
+        }
+    }
+
+    func dismissShareImportStatus() {
+        shareImportStatus = nil
+    }
+
     // MARK: - Pushing official artwork back to the device
 
     private var uploadedThumbnailMovieIDs: Set<Int> = []

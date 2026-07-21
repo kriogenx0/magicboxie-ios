@@ -9,9 +9,13 @@ targets:
     platform: iOS
     sources:
       - path: Sources/MagicBox
+      - path: Sources/Shared
     configFiles:
       Debug: Config/Secrets.xcconfig
       Release: Config/Secrets.xcconfig
+    dependencies:
+      - target: MagicBoxShareExtension
+        embed: true
     info:
       path: Sources/MagicBox/Info.plist
       properties:
@@ -22,11 +26,58 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         TMDB_API_KEY: $(TMDB_API_KEY)
+        # So the Share Extension can hand a shared video off to the main app
+        # (extensions can't do the upload themselves - see ShareViewController).
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - magicbox
+    entitlements:
+      path: Sources/MagicBox/MagicBox.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.magicbox.app
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.magicbox.app
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1,2"
+        # App Groups (needed for the Share Extension hand-off) isn't honored
+        # under ad-hoc "Sign to Run Locally" - Xcode silently drops any
+        # entitlement that needs a real provisioning profile. A free personal
+        # team is enough to fix this, even for Simulator-only builds.
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: K2F4FTM2XQ
+
+  MagicBoxShareExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Sources/MagicBoxShareExtension
+      - path: Sources/Shared
+    info:
+      path: Sources/MagicBoxShareExtension/Info.plist
+      properties:
+        CFBundleDisplayName: MagicBox
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsMovieWithMaxCount: 1
+    entitlements:
+      path: Sources/MagicBoxShareExtension/ShareExtension.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.magicbox.app
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.magicbox.app.ShareExtension
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: "YES"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: K2F4FTM2XQ
+
 schemes:
   MagicBox:
     build:

@@ -72,4 +72,19 @@ final class DeviceHTTPClient {
         request.httpBody = imageData
         _ = try await session.data(for: request)
     }
+
+    /// Uploads a whole video file (e.g. shared in from Photos/Dropbox/Files)
+    /// so the device adds it to its library. Streams from disk rather than
+    /// loading the file into memory first - these can be multi-gigabyte files.
+    func uploadMovie(filename: String, fileURL: URL) async throws -> DeviceMovie {
+        var request = URLRequest(url: baseURL.appendingPathComponent("movies"))
+        request.httpMethod = "POST"
+        request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        request.setValue(filename, forHTTPHeaderField: "X-Filename")
+        let (data, response) = try await session.upload(for: request, fromFile: fileURL)
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            throw URLError(.badServerResponse)
+        }
+        return try JSONDecoder().decode(DeviceMovie.self, from: data)
+    }
 }

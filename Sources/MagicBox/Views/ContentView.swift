@@ -41,6 +41,9 @@ struct ContentView: View {
                             onDismiss: { bleManager.dismissWiFiSuggestion() }
                         )
                     }
+                    if let status = bleManager.shareImportStatus {
+                        ShareImportBanner(status: status, onDismiss: { bleManager.dismissShareImportStatus() })
+                    }
                 }
             }
         }
@@ -72,6 +75,39 @@ private struct WiFiSuggestionBanner: View {
         .padding(8)
         .frame(maxWidth: .infinity)
         .background(Color.blue.opacity(0.2))
+    }
+}
+
+/// Feedback for a share sent in from Photos/Dropbox/Files - there's no other
+/// natural place to show this, since the import happens via a background
+/// URL handoff from the Share Extension, not a screen the user is on.
+private struct ShareImportBanner: View {
+    let status: BLEManager.ShareImportStatus
+    let onDismiss: () -> Void
+
+    private var text: String {
+        switch status {
+        case .importing(let title): return "Importing \u{201C}\(title)\u{201D}…"
+        case .succeeded(let title): return "\u{201C}\(title)\u{201D} added to MagicBox."
+        case .failed(let title): return "Couldn\u{2019}t import \u{201C}\(title)\u{201D}."
+        }
+    }
+
+    var body: some View {
+        HStack {
+            Text(text)
+                .font(.caption)
+            Spacer()
+            Button {
+                onDismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption)
+            }
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity)
+        .background(Color.green.opacity(0.2))
     }
 }
 

@@ -4,7 +4,7 @@ BUNDLE_ID := com.magicbox.app
 DERIVED_DATA := build
 SIMULATOR_NAME ?= iPhone 17 Pro
 
-.PHONY: all setup dev build clean
+.PHONY: all setup dev build clean _resign
 
 all: setup dev
 
@@ -28,6 +28,7 @@ dev: setup
 		-destination 'platform=iOS Simulator,name=$(SIMULATOR_NAME)' \
 		-derivedDataPath $(DERIVED_DATA) \
 		build
+	$(MAKE) _resign
 	open -a Simulator
 	xcrun simctl bootstatus '$(SIMULATOR_NAME)' -b
 	xcrun simctl install '$(SIMULATOR_NAME)' \
@@ -36,9 +37,23 @@ dev: setup
 	SIMCTL_CHILD_MAGICBOX_DEVICE_URL=http://localhost:8000 \
 		xcrun simctl launch --terminate-running-process '$(SIMULATOR_NAME)' $(BUNDLE_ID)
 
-# Release-configuration build for the Simulator. Building for a physical
-# device or archiving for the App Store additionally needs a
-# DEVELOPMENT_TEAM configured in project.yml, which this project doesn't set.
+# xcodebuild's Simulator code-signing pass silently drops entitlements that
+# need a provisioning profile (App Groups, used for the Share Extension
+# hand-off) even with a real DEVELOPMENT_TEAM set - it only carries them
+# through properly when Xcode itself drives the build/run. Re-signing by hand
+# with the same (already-generated) entitlements files afterward fixes it for
+# our own build+simctl-install path.
+_resign:
+	codesign --force --sign - \
+		--entitlements Sources/MagicBoxShareExtension/ShareExtension.entitlements \
+		"$(DERIVED_DATA)/Build/Products/Debug-iphonesimulator/$(SCHEME).app/PlugIns/MagicBoxShareExtension.appex"
+	codesign --force --sign - \
+		--entitlements Sources/MagicBox/MagicBox.entitlements \
+		"$(DERIVED_DATA)/Build/Products/Debug-iphonesimulator/$(SCHEME).app"
+
+# Release-configuration build for the Simulator. Archiving for a physical
+# device or the App Store may additionally need entitlements/provisioning
+# set up properly in Xcode's Signing & Capabilities beyond what's here.
 build: setup
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) \
 		-configuration Release \
