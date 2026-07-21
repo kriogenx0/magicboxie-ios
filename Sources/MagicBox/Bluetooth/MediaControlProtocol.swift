@@ -1,0 +1,66 @@
+import CoreBluetooth
+import Foundation
+
+/// Wire format shared with the MagicBox device's BLE GATT peripheral.
+enum MediaControlProtocol {
+    static let serviceUUID = CBUUID(string: "3E2C1A00-3B42-4B7E-9C3E-000000000001")
+    static let commandCharacteristicUUID = CBUUID(string: "3E2C1A00-3B42-4B7E-9C3E-000000000002")
+    static let statusCharacteristicUUID = CBUUID(string: "3E2C1A00-3B42-4B7E-9C3E-000000000003")
+    static let libraryCharacteristicUUID = CBUUID(string: "3E2C1A00-3B42-4B7E-9C3E-000000000004")
+    /// Read-only: the device's own "http://ip:port", so a BLE-connected app can
+    /// discover it and offer to switch to WiFi for bulk data (thumbnails, library).
+    static let networkInfoCharacteristicUUID = CBUUID(string: "3E2C1A00-3B42-4B7E-9C3E-000000000005")
+
+    enum Opcode: UInt8 {
+        case play = 0x01
+        case pause = 0x02
+        case stop = 0x03
+        case selectMovie = 0x04
+        case seek = 0x05
+    }
+
+    /// 1-byte opcode, optionally followed by a little-endian UInt32 argument.
+    static func encodeCommand(_ opcode: Opcode, argument: UInt32? = nil) -> Data {
+        var data = Data([opcode.rawValue])
+        if let argument {
+            data.append(UInt8(argument & 0xFF))
+            data.append(UInt8((argument >> 8) & 0xFF))
+            data.append(UInt8((argument >> 16) & 0xFF))
+            data.append(UInt8((argument >> 24) & 0xFF))
+        }
+        return data
+    }
+
+    /// 1 byte status + 2 bytes movie ID (0xFFFF = none) + 4 bytes position seconds, all little-endian.
+    static func decodeStatus(_ data: Data) -> PlaybackState? {
+        guard data.count >= 7, let status = PlaybackStatus(rawValue: data[data.startIndex]) else { return nil }
+        let bytes = [UInt8](data)
+        let movieIDRaw = UInt16(bytes[1]) | (UInt16(bytes[2]) << 8)
+        let positionRaw = UInt32(bytes[3])
+            | (UInt32(bytes[4]) << 8)
+            | (UInt32(bytes[5]) << 16)
+            | (UInt32(bytes[6]) << 24)
+        let movieID = movieIDRaw == UInt16.max ? nil : Int(movieIDRaw)
+        return PlaybackState(status: status, movieID: movieID, positionSeconds: Int(positionRaw))
+    }
+
+    /// UTF-8 text, one movie per line: "id|title|durationSeconds".
+    static func decodeLibrary(_ data: Data) -> [Movie] {
+        guard let text = String(data: data, encoding: .utf8) else { return [] }
+        return text
+            .split(separator: "\n")
+            .compactMap { line -> Movie? in
+                let parts = line.split(separator: "|")
+                guard parts.count == 3,
+                      let id = Int(parts[0]),
+                      let duration = Int(parts[2]) else { return nil }
+                return Movie(id: id, title: String(parts[1]), durationSeconds: duration)
+            }
+    }
+
+    /// UTF-8 "http://ip:port" string.
+    static func decodeNetworkURL(_ data: Data) -> URL? {
+        guard let text = String(data: data, encoding: .utf8) else { return nil }
+        return URL(string: text)
+    }
+}

@@ -1,0 +1,45 @@
+name: MagicBox
+options:
+  bundleIdPrefix: com.magicbox
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  MagicBox:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/MagicBox
+    configFiles:
+      Debug: Config/Secrets.xcconfig
+      Release: Config/Secrets.xcconfig
+    info:
+      path: Sources/MagicBox/Info.plist
+      properties:
+        UILaunchScreen: {}
+        NSBluetoothAlwaysUsageDescription: "MagicBox uses Bluetooth to find and control your MagicBox player."
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        TMDB_API_KEY: $(TMDB_API_KEY)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.magicbox.app
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+schemes:
+  MagicBox:
+    build:
+      targets:
+        MagicBox: all
+    run:
+      config: Debug
+      # Dev mode by default when running from Xcode: talks to the device's
+      # HTTP API directly (e.g. the Docker container's web_service on this
+      # Mac) instead of Bluetooth, so the UI can be built/tested without BLE
+      # hardware or a Pi. Remove/flip to "0" in the scheme editor to test real
+      # BLE. MAGICBOX_DEVICE_URL defaults to localhost:8000 if unset - point
+      # it at a real device's LAN IP instead when needed.
+      environmentVariables:
+        MAGICBOX_DIRECT_API: "1"
+        MAGICBOX_DEVICE_URL: "http://localhost:8000"
