@@ -29,6 +29,14 @@ final class BLEManager: NSObject, ObservableObject {
     /// offers switching to it since WiFi carries bulk data far better than BLE.
     @Published private(set) var suggestedWiFiURL: URL?
     @Published private(set) var activeTransport: ActiveTransport = .bluetooth
+    /// Set the instant a movie is tapped, before the device has confirmed
+    /// anything - lets the UI show that movie in the controls with a loading
+    /// state immediately, rather than waiting on a round trip first. Cleared
+    /// once the device reports that movie as the active one.
+    @Published private(set) var pendingMovie: Movie?
+    /// Up-next queue. The currently playing/loading movie is never in here -
+    /// it's whichever was most recently popped off the front.
+    @Published private(set) var queue: [Movie] = []
 
     private let mode = AppConfig.mode
     private var centralManager: CBCentralManager!
@@ -192,11 +200,28 @@ final class BLEManager: NSObject, ObservableObject {
 
     private func refreshDirectAPIStatus(using client: DeviceHTTPClient) async {
         guard let status = try? await client.fetchStatus() else { return }
-        playbackState = PlaybackState(
+        updatePlaybackState(PlaybackState(
             status: PlaybackStatus(deviceString: status.status),
             movieID: status.movieID,
             positionSeconds: status.positionSeconds
-        )
+        ))
+    }
+
+    /// Single point where the confirmed device status lands, so clearing the
+    /// optimistic `pendingMovie` once it's confirmed can't be forgotten in
+    /// one of the several places status arrives from (BLE notify, BLE poll,
+    /// WiFi poll, post-command refresh).
+    private func updatePlaybackState(_ newState: PlaybackState) {
+        playbackState = newState
+        if let pending = pendingMovie, newState.movieID == pending.id {
+            pendingMovie = nil
+        }
+        // Nothing playing and nothing pending, but the queue has more - the
+        // previous movie must have finished on its own. An explicit stop()
+        // already empties the queue, so this can't misfire there.
+        if newState.status == .stopped, pendingMovie == nil, !queue.isEmpty {
+            playNextInQueue()
+        }
     }
 
     private func sendDirectAPICommand(_ opcode: DeviceOpcode, argument: Int? = nil) {
@@ -223,7 +248,11 @@ final class BLEManager: NSObject, ObservableObject {
         }
     }
 
+    /// Stops playback entirely and clears the queue - this is "stop", not
+    /// "skip", so it shouldn't leave anything queued to auto-advance into.
     func stop() {
+        pendingMovie = nil
+        queue.removeAll()
         switch effectiveTransport {
         case .bluetooth: sendCommand(.stop)
         case .wifi: sendDirectAPICommand(.stop)
@@ -237,10 +266,36 @@ final class BLEManager: NSObject, ObservableObject {
         }
     }
 
-    func selectMovie(_ movie: Movie) {
+    // MARK: - Queue
+
+    /// Adds a movie to the end of the queue. If nothing is currently playing
+    /// or about to, starts it immediately instead of leaving it stranded.
+    func enqueue(_ movie: Movie) {
+        queue.append(movie)
+        if pendingMovie == nil && playbackState.movieID == nil {
+            playNextInQueue()
+        }
+    }
+
+    /// Jumps a movie to the front of the queue, ahead of everything else
+    /// already there, and starts playing it right away.
+    func playNow(_ movie: Movie) {
+        queue.removeAll { $0.id == movie.id }
+        queue.insert(movie, at: 0)
+        playNextInQueue()
+    }
+
+    private func playNextInQueue() {
+        guard !queue.isEmpty else { return }
+        let next = queue.removeFirst()
+        pendingMovie = next
         switch effectiveTransport {
-        case .bluetooth: sendCommand(.selectMovie, argument: UInt32(movie.id))
-        case .wifi: sendDirectAPICommand(.selectMovie, argument: movie.id)
+        case .bluetooth:
+            sendCommand(.selectMovie, argument: UInt32(next.id))
+            sendCommand(.play)
+        case .wifi:
+            sendDirectAPICommand(.selectMovie, argument: next.id)
+            sendDirectAPICommand(.play)
         }
     }
 
@@ -289,6 +344,7 @@ extension BLEManager: CBCentralManagerDelegate {
         networkInfoCharacteristic = nil
         suggestedWiFiURL = nil
         activeTransport = .bluetooth
+        pendingMovie = nil
         connectionState = .disconnected
         startScanning()
     }
@@ -343,7 +399,7 @@ extension BLEManager: CBPeripheralDelegate {
         switch characteristic.uuid {
         case MediaControlProtocol.statusCharacteristicUUID:
             if let state = MediaControlProtocol.decodeStatus(data) {
-                playbackState = state
+                updatePlaybackState(state)
             }
         case MediaControlProtocol.libraryCharacteristicUUID:
             movies = MediaControlProtocol.decodeLibrary(data)

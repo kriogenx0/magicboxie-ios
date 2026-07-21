@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct MovieDetailView: View {
+    @EnvironmentObject private var bleManager: BLEManager
+    @Environment(\.dismiss) private var dismiss
     let movie: Movie
     let artwork: TMDBMovie?
 
@@ -28,6 +30,27 @@ struct MovieDetailView: View {
                     Text(overview)
                         .font(.body)
                 }
+
+                HStack(spacing: 12) {
+                    Button {
+                        bleManager.playNow(movie)
+                        dismiss()
+                    } label: {
+                        Label("Play Now", systemImage: "play.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button {
+                        bleManager.enqueue(movie)
+                        dismiss()
+                    } label: {
+                        Label("Add to Queue", systemImage: "text.badge.plus")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(.top, 8)
             }
             .padding()
         }
@@ -39,4 +62,5 @@ struct MovieDetailView: View {
         movie: Movie(id: 0, title: "Star Wars", durationSeconds: 7620),
         artwork: nil
     )
+    .environmentObject(BLEManager())
 }

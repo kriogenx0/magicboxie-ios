@@ -6,6 +6,10 @@ struct PlayerControlsView: View {
     let movie: Movie
     @State private var showingDetail = false
 
+    private var isLoading: Bool {
+        bleManager.pendingMovie?.id == movie.id
+    }
+
     var body: some View {
         VStack(spacing: 12) {
             Button {
@@ -24,18 +28,39 @@ struct PlayerControlsView: View {
                     Image(systemName: "stop.fill")
                 }
 
-                Button {
-                    if bleManager.playbackState.status == .playing {
-                        bleManager.pause()
-                    } else {
-                        bleManager.play()
+                if isLoading {
+                    ProgressView()
+                } else {
+                    Button {
+                        if bleManager.playbackState.status == .playing {
+                            bleManager.pause()
+                        } else {
+                            bleManager.play()
+                        }
+                    } label: {
+                        Image(systemName: bleManager.playbackState.status == .playing ? "pause.fill" : "play.fill")
                     }
-                } label: {
-                    Image(systemName: bleManager.playbackState.status == .playing ? "pause.fill" : "play.fill")
                 }
             }
             .font(.system(size: 32))
-            .padding(.bottom, 20)
+
+            if !bleManager.queue.isEmpty {
+                Divider()
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Up Next")
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+                    ForEach(bleManager.queue) { queuedMovie in
+                        Text(queuedMovie.title)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal)
+            }
+
+            Spacer(minLength: 0).frame(height: 20)
         }
         .padding(.top, 12)
         .sheet(isPresented: $showingDetail) {

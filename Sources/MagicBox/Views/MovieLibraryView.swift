@@ -5,6 +5,7 @@ struct MovieLibraryView: View {
     @EnvironmentObject private var bleManager: BLEManager
     @EnvironmentObject private var artworkStore: MovieArtworkStore
     @State private var searchText = ""
+    @State private var selectedMovie: Movie?
 
     private var filteredMovies: [Movie] {
         guard !searchText.isEmpty else { return bleManager.movies }
@@ -27,8 +28,7 @@ struct MovieLibraryView: View {
                     Section(section.category.rawValue) {
                         ForEach(section.movies) { movie in
                             Button {
-                                bleManager.selectMovie(movie)
-                                bleManager.play()
+                                selectedMovie = movie
                             } label: {
                                 MovieRow(movie: movie, artwork: artworkStore.artwork(for: movie.title))
                                     .task {
@@ -49,10 +49,17 @@ struct MovieLibraryView: View {
                 }
             }
 
-            if let currentMovie = bleManager.movies.first(where: { $0.id == bleManager.playbackState.movieID }) {
+            // Prefer the just-tapped movie (shown immediately, with a loading
+            // state) over the last device-confirmed one, until the device
+            // confirms it - see BLEManager.pendingMovie.
+            if let displayedMovie = bleManager.pendingMovie
+                ?? bleManager.movies.first(where: { $0.id == bleManager.playbackState.movieID }) {
                 Divider()
-                PlayerControlsView(movie: currentMovie)
+                PlayerControlsView(movie: displayedMovie)
             }
+        }
+        .sheet(item: $selectedMovie) { movie in
+            MovieDetailView(movie: movie, artwork: artworkStore.artwork(for: movie.title))
         }
     }
 }
