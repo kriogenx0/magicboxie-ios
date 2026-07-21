@@ -16,6 +16,13 @@ setup:
 # Build for development and run it in the Simulator.
 # xcodebuild/simctl install replace prior build output in place, so there's
 # nothing to manually delete between runs.
+#
+# The Simulator has no real Bluetooth radio, so `xcrun simctl launch` here
+# forces direct-API dev mode (hitting the device's HTTP API, e.g. the Docker
+# container on this Mac, instead of BLE) - otherwise the app just shows
+# "Bluetooth is unavailable". Note this only affects `simctl launch`: the
+# Xcode scheme's own environment variables (project.yml) are a separate
+# defaults-when-run-from-Xcode setting and don't apply to this path at all.
 dev: setup
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) \
 		-destination 'platform=iOS Simulator,name=$(SIMULATOR_NAME)' \
@@ -25,7 +32,9 @@ dev: setup
 	xcrun simctl bootstatus '$(SIMULATOR_NAME)' -b
 	xcrun simctl install '$(SIMULATOR_NAME)' \
 		"$(DERIVED_DATA)/Build/Products/Debug-iphonesimulator/$(SCHEME).app"
-	xcrun simctl launch '$(SIMULATOR_NAME)' $(BUNDLE_ID)
+	SIMCTL_CHILD_MAGICBOX_DIRECT_API=1 \
+	SIMCTL_CHILD_MAGICBOX_DEVICE_URL=http://localhost:8000 \
+		xcrun simctl launch --terminate-running-process '$(SIMULATOR_NAME)' $(BUNDLE_ID)
 
 # Release-configuration build for the Simulator. Building for a physical
 # device or archiving for the App Store additionally needs a
