@@ -1,10 +1,23 @@
 import Foundation
 import SwiftUI
 
+private struct ListPullOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 struct MovieLibraryView: View {
     @EnvironmentObject private var bleManager: BLEManager
     @EnvironmentObject private var artworkStore: MovieArtworkStore
     @State private var searchText = ""
+    @State private var isSearchRevealed = false
+
+    // How far past the top the user has to pull before the search field
+    // pops in - roughly matches the feel of a pull-to-refresh threshold.
+    private let revealThreshold: CGFloat = 45
+
     @Binding var path: [Movie]
 
     private var filteredMovies: [Movie] {
@@ -18,12 +31,35 @@ struct MovieLibraryView: View {
         // controls - the opposite of "controls always visible at the bottom".
         // Building our own guarantees PlayerControlsView stays the last,
         // fixed element regardless of how the OS likes to place search UI.
+        //
+        // Hidden by default; revealed by swiping down past the top of the
+        // list. Tracks the list's actual overscroll amount (via a
+        // GeometryReader + PreferenceKey on its first row) rather than a
+        // one-shot programmatic scroll, since the latter proved to land at
+        // an imprecise offset when combined with this screen's safe-area
+        // banners.
         VStack(spacing: 0) {
-            SearchField(text: $searchText)
-                .padding(.horizontal)
-                .padding(.vertical, 8)
+            if isSearchRevealed {
+                SearchField(text: $searchText)
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
 
             List {
+                Color.clear
+                    .frame(height: 0)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets())
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear.preference(
+                                key: ListPullOffsetKey.self,
+                                value: geo.frame(in: .named("movieList")).minY
+                            )
+                        }
+                    )
+
                 ForEach(MovieCategory.sections(for: filteredMovies), id: \.category.rawValue) { section in
                     Section(section.category.rawValue) {
                         ForEach(section.movies) { movie in
@@ -42,6 +78,13 @@ struct MovieLibraryView: View {
                 }
             }
             .listStyle(.plain)
+            .coordinateSpace(name: "movieList")
+            .onPreferenceChange(ListPullOffsetKey.self) { offset in
+                guard !isSearchRevealed, offset > revealThreshold else { return }
+                withAnimation {
+                    isSearchRevealed = true
+                }
+            }
             .overlay {
                 if filteredMovies.isEmpty {
                     Text(bleManager.movies.isEmpty ? "No movies found on the device" : "No movies match \u{201C}\(searchText)\u{201D}")
