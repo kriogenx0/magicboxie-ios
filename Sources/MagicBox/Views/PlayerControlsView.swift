@@ -2,9 +2,8 @@ import SwiftUI
 
 struct PlayerControlsView: View {
     @EnvironmentObject private var bleManager: BLEManager
-    @EnvironmentObject private var artworkStore: MovieArtworkStore
     let movie: Movie
-    @State private var showingDetail = false
+    @Binding var path: [Movie]
 
     private var isLoading: Bool {
         bleManager.pendingMovie?.id == movie.id
@@ -13,7 +12,7 @@ struct PlayerControlsView: View {
     var body: some View {
         VStack(spacing: 12) {
             Button {
-                showingDetail = true
+                path.append(movie)
             } label: {
                 Text(movie.title)
                     .font(.footnote)
@@ -63,14 +62,11 @@ struct PlayerControlsView: View {
             Spacer(minLength: 0).frame(height: 20)
         }
         .padding(.top, 12)
-        .sheet(isPresented: $showingDetail) {
-            MovieDetailView(movie: movie, artwork: artworkStore.artwork(for: movie.title))
-        }
     }
 }
 
 #Preview {
-    PlayerControlsView(movie: Movie(id: 0, title: "Star Wars", durationSeconds: 7620))
+    PlayerControlsView(movie: Movie(id: 0, title: "Star Wars", durationSeconds: 7620), path: .constant([]))
         .environmentObject(BLEManager())
         .environmentObject(MovieArtworkStore())
 }

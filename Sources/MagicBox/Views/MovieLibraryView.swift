@@ -5,7 +5,7 @@ struct MovieLibraryView: View {
     @EnvironmentObject private var bleManager: BLEManager
     @EnvironmentObject private var artworkStore: MovieArtworkStore
     @State private var searchText = ""
-    @State private var selectedMovie: Movie?
+    @Binding var path: [Movie]
 
     private var filteredMovies: [Movie] {
         guard !searchText.isEmpty else { return bleManager.movies }
@@ -28,7 +28,7 @@ struct MovieLibraryView: View {
                     Section(section.category.rawValue) {
                         ForEach(section.movies) { movie in
                             Button {
-                                selectedMovie = movie
+                                path.append(movie)
                             } label: {
                                 MovieRow(movie: movie, artwork: artworkStore.artwork(for: movie.title))
                                     .task {
@@ -55,11 +55,8 @@ struct MovieLibraryView: View {
             if let displayedMovie = bleManager.pendingMovie
                 ?? bleManager.movies.first(where: { $0.id == bleManager.playbackState.movieID }) {
                 Divider()
-                PlayerControlsView(movie: displayedMovie)
+                PlayerControlsView(movie: displayedMovie, path: $path)
             }
-        }
-        .sheet(item: $selectedMovie) { movie in
-            MovieDetailView(movie: movie, artwork: artworkStore.artwork(for: movie.title))
         }
     }
 }
@@ -124,7 +121,7 @@ private struct MovieRow: View {
 }
 
 #Preview {
-    MovieLibraryView()
+    MovieLibraryView(path: .constant([]))
         .environmentObject(BLEManager())
         .environmentObject(MovieArtworkStore())
 }

@@ -2,17 +2,27 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var bleManager: BLEManager
+    @EnvironmentObject private var artworkStore: MovieArtworkStore
+    // Owned here (above the List) so pushing/popping MovieDetailView via
+    // navigationDestination never rebuilds MovieLibraryView's List, which is
+    // what would happen with a .sheet - this way scroll position survives.
+    // Array-based path (rather than navigationDestination(item:)) since that
+    // needs iOS 17 and this project targets 16.
+    @State private var path: [Movie] = []
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
                 if bleManager.connectionState == .connected {
-                    MovieLibraryView()
+                    MovieLibraryView(path: $path)
                 } else {
                     ConnectionStatusView()
                 }
             }
             .navigationBarHidden(true)
+            .navigationDestination(for: Movie.self) { movie in
+                MovieDetailView(movie: movie, artwork: artworkStore.artwork(for: movie.title))
+            }
             .safeAreaInset(edge: .top) {
                 VStack(spacing: 0) {
                     if AppConfig.mode == .directAPI {
