@@ -326,6 +326,13 @@ final class BLEManager: NSObject, ObservableObject {
         playNextInQueue()
     }
 
+    /// Skips the current movie in favor of whatever's next in the queue.
+    /// Only meaningful when the queue isn't empty - the UI only shows a
+    /// "Next" button in that case.
+    func skipToNext() {
+        playNextInQueue()
+    }
+
     private func playNextInQueue() {
         guard !queue.isEmpty else { return }
         let next = queue.removeFirst()

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PlayerControlsView: View {
     @EnvironmentObject private var bleManager: BLEManager
+    @EnvironmentObject private var artworkStore: MovieArtworkStore
     let movie: Movie
     @Binding var path: [Movie]
 
@@ -10,58 +11,53 @@ struct PlayerControlsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 12) {
+        HStack(spacing: 12) {
             Button {
                 path.append(movie)
             } label: {
-                Text(movie.title)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 12) {
+                    ThumbnailImage(
+                        primaryURL: AppConfig.deviceHTTPBaseURL.appendingPathComponent("movies/\(movie.id)/thumbnail"),
+                        fallbackURL: artworkStore.artwork(for: movie.title)?.posterURL
+                    )
+                    .frame(width: 40, height: 40)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                    Text(movie.title)
+                        .font(.footnote)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                }
             }
             .buttonStyle(.plain)
 
-            HStack(spacing: 40) {
-                Button {
-                    bleManager.stop()
-                } label: {
-                    Image(systemName: "stop.fill")
-                }
+            Spacer(minLength: 8)
 
-                if isLoading {
-                    ProgressView()
-                } else {
-                    Button {
-                        if bleManager.playbackState.status == .playing {
-                            bleManager.pause()
-                        } else {
-                            bleManager.play()
-                        }
-                    } label: {
-                        Image(systemName: bleManager.playbackState.status == .playing ? "pause.fill" : "play.fill")
+            if isLoading {
+                ProgressView()
+            } else {
+                Button {
+                    if bleManager.playbackState.status == .playing {
+                        bleManager.pause()
+                    } else {
+                        bleManager.play()
                     }
+                } label: {
+                    Image(systemName: bleManager.playbackState.status == .playing ? "pause.fill" : "play.fill")
                 }
             }
-            .font(.system(size: 32))
 
             if !bleManager.queue.isEmpty {
-                Divider()
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Up Next")
-                        .font(.caption.bold())
-                        .foregroundStyle(.secondary)
-                    ForEach(bleManager.queue) { queuedMovie in
-                        Text(queuedMovie.title)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                Button {
+                    bleManager.skipToNext()
+                } label: {
+                    Image(systemName: "forward.end.fill")
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal)
             }
-
-            Spacer(minLength: 0).frame(height: 20)
         }
-        .padding(.top, 12)
+        .font(.system(size: 22))
+        .padding(.horizontal)
+        .padding(.vertical, 10)
     }
 }
 
