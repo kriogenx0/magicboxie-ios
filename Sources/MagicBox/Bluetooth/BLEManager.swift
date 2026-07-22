@@ -21,6 +21,15 @@ enum ActiveTransport: Equatable {
 
 /// Central-role BLE client: scans for the MagicBox peripheral, discovers the
 /// Media Control Service, and exposes its state to SwiftUI.
+///
+/// Isolated to the main actor: without it, the unstructured Tasks that
+/// sendDirectAPICommand spawns for every play/pause/queue action can resume
+/// on background threads after their network await, racing each other's
+/// reads/writes of `queue`/`pendingMovie` (plain, unsynchronized Array/enum
+/// mutations) - this was observed to silently drop queued movies and reset
+/// pendingMovie to nil under real device/network timing, alongside a
+/// "Publishing changes from background threads" runtime warning.
+@MainActor
 final class BLEManager: NSObject, ObservableObject {
     @Published private(set) var connectionState: ConnectionState = .disconnected
     @Published private(set) var movies: [Movie] = []
@@ -331,6 +340,12 @@ final class BLEManager: NSObject, ObservableObject {
     /// "Next" button in that case.
     func skipToNext() {
         playNextInQueue()
+    }
+
+    /// Drops a single movie out of the queue without touching whatever's
+    /// currently playing - used by the queue list's swipe-to-remove.
+    func removeFromQueue(_ movie: Movie) {
+        queue.removeAll { $0.id == movie.id }
     }
 
     private func playNextInQueue() {
