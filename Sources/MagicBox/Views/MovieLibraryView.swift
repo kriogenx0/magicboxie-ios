@@ -116,7 +116,7 @@ struct MovieLibraryView: View {
             if let displayedMovie = bleManager.pendingMovie
                 ?? bleManager.movies.first(where: { $0.id == bleManager.playbackState.movieID }) {
                 Divider()
-                PlayerControlsView(movie: displayedMovie, path: $path)
+                PlayerControlsView(movie: displayedMovie)
             }
         }
     }
