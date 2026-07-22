@@ -43,10 +43,17 @@ struct PlayerControlsView: View {
                     ProgressView()
                 } else {
                     Button {
-                        if bleManager.playbackState.status == .playing {
+                        switch bleManager.playbackState.status {
+                        case .playing:
                             bleManager.pause()
-                        } else {
+                        case .paused:
                             bleManager.play()
+                        case .stopped:
+                            // Nothing's loaded on the device once truly
+                            // stopped (e.g. this movie reached its natural
+                            // end) - a bare play() would be a no-op, so
+                            // re-select and start it again from scratch.
+                            bleManager.playNow(movie)
                         }
                     } label: {
                         Image(systemName: bleManager.playbackState.status == .playing ? "pause.fill" : "play.fill")

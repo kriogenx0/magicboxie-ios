@@ -43,6 +43,14 @@ final class BLEManager: NSObject, ObservableObject {
     /// state immediately, rather than waiting on a round trip first. Cleared
     /// once the device reports that movie as the active one.
     @Published private(set) var pendingMovie: Movie?
+    /// The movie the mini player should show - set whenever playback of a
+    /// movie starts and, unlike pendingMovie/playbackState.movieID, is NOT
+    /// cleared just because the device reports "stopped": a movie reaching
+    /// its natural end also reports stopped, and the mini player (plus
+    /// whatever's still queued) should stay visible through that rather
+    /// than vanish. Only an explicit stop() (or losing the connection)
+    /// clears it.
+    @Published private(set) var currentMovie: Movie?
     /// Up-next queue. The currently playing/loading movie is never in here -
     /// it's whichever was most recently popped off the front.
     @Published private(set) var queue: [Movie] = []
@@ -302,6 +310,7 @@ final class BLEManager: NSObject, ObservableObject {
     /// "skip", so it shouldn't leave anything queued to auto-advance into.
     func stop() {
         pendingMovie = nil
+        currentMovie = nil
         queue.removeAll()
         switch effectiveTransport {
         case .bluetooth: sendCommand(.stop)
@@ -352,6 +361,7 @@ final class BLEManager: NSObject, ObservableObject {
         guard !queue.isEmpty else { return }
         let next = queue.removeFirst()
         pendingMovie = next
+        currentMovie = next
         switch effectiveTransport {
         case .bluetooth:
             sendCommand(.selectMovie, argument: UInt32(next.id))
@@ -408,6 +418,7 @@ extension BLEManager: CBCentralManagerDelegate {
         suggestedWiFiURL = nil
         activeTransport = .bluetooth
         pendingMovie = nil
+        currentMovie = nil
         connectionState = .disconnected
         startScanning()
     }

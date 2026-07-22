@@ -110,11 +110,12 @@ struct MovieLibraryView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            // Prefer the just-tapped movie (shown immediately, with a loading
-            // state) over the last device-confirmed one, until the device
-            // confirms it - see BLEManager.pendingMovie.
-            if let displayedMovie = bleManager.pendingMovie
-                ?? bleManager.movies.first(where: { $0.id == bleManager.playbackState.movieID }) {
+            // currentMovie covers both the just-tapped movie (shown
+            // immediately, with a loading state, before the device confirms
+            // it - see BLEManager.pendingMovie) and stays put once a movie
+            // reaches its natural end, rather than disappearing just because
+            // the device now reports "stopped".
+            if let displayedMovie = bleManager.currentMovie {
                 Divider()
                 PlayerControlsView(movie: displayedMovie)
             }
