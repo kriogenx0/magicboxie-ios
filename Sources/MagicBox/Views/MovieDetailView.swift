@@ -9,13 +9,25 @@ struct MovieDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                ThumbnailImage(
-                    primaryURL: AppConfig.deviceHTTPBaseURL.appendingPathComponent("movies/\(movie.id)/thumbnail"),
-                    fallbackURL: artwork?.posterURL
-                )
-                .aspectRatio(2 / 3, contentMode: .fit)
-                .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                // A fixed height (rather than .aspectRatio + .frame(maxWidth:))
+                // is what actually bounds this inside a ScrollView: with
+                // height otherwise unconstrained, ThumbnailImage's internal
+                // .fill aspect ratio has nothing to fit within and blows up
+                // to an enormous cropped size instead of a sensible poster.
+                // The GeometryReader (rather than .frame(maxWidth: .infinity)
+                // directly on the image) is what makes the width behave -
+                // reading the container's actual resolved width and applying
+                // it explicitly sidesteps AsyncImage's own internal sizing
+                // preferences, which otherwise bled past the screen edges.
+                GeometryReader { geo in
+                    ThumbnailImage(
+                        primaryURL: AppConfig.deviceHTTPBaseURL.appendingPathComponent("movies/\(movie.id)/thumbnail"),
+                        fallbackURL: artwork?.posterURL
+                    )
+                    .frame(width: geo.size.width, height: 320)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .frame(height: 320)
 
                 Text(movie.title)
                     .font(.title2.bold())
