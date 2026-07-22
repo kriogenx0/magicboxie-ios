@@ -47,6 +47,11 @@ targets:
         # team is enough to fix this, even for Simulator-only builds.
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: K2F4FTM2XQ
+        # Adding Assets.xcassets (for the clapperboard placeholder image)
+        # makes Xcode's asset compiler look for an AppIcon set by default -
+        # there isn't one yet, so this stays empty until the app has a
+        # real icon.
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
 
   MagicBoxShareExtension:
     type: app-extension

@@ -16,9 +16,9 @@ struct ThumbnailImage: View {
                 case .failure:
                     fallbackView
                 case .empty:
-                    Color.secondary.opacity(0.2)
+                    defaultArtwork
                 @unknown default:
-                    Color.secondary.opacity(0.2)
+                    defaultArtwork
                 }
             }
         } else {
@@ -32,10 +32,24 @@ struct ThumbnailImage: View {
             AsyncImage(url: fallbackURL) { image in
                 image.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
-                Color.secondary.opacity(0.2)
+                defaultArtwork
             }
         } else {
-            Color.secondary.opacity(0.2)
+            defaultArtwork
         }
+    }
+
+    /// Shown while a real thumbnail/poster is loading, and whenever neither
+    /// is available at all - a generic clapperboard reads as "a movie" at a
+    /// glance, rather than a blank box.
+    private var defaultArtwork: some View {
+        Color.secondary.opacity(0.2)
+            .overlay {
+                Image("Clapperboard")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .foregroundStyle(.secondary)
+                    .padding(8)
+            }
     }
 }
