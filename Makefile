@@ -3,8 +3,9 @@ PROJECT := MagicBox.xcodeproj
 BUNDLE_ID := com.alexv.magicboxie.app
 DERIVED_DATA := build
 SIMULATOR_NAME ?= iPhone 17 Pro
+DEVICE ?=
 
-.PHONY: all setup dev build clean _resign
+.PHONY: all setup dev build publish clean _resign
 
 all: setup dev
 
@@ -62,6 +63,7 @@ build: setup
 		build
 
 publish: setup
+	@echo "Building production app (Direct API disabled)..."
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) \
 		-configuration Release \
 		-sdk iphoneos \
@@ -92,7 +94,23 @@ publish: setup
 		-archivePath $(DERIVED_DATA)/$(SCHEME).xcarchive \
 		-exportPath $(DERIVED_DATA)/Publish \
 		-exportOptionsPlist $(DERIVED_DATA)/ExportOptions.plist
-	open $(DERIVED_DATA)/Publish
+	@echo "Installing on connected device..."
+	@if [ -n "$(DEVICE)" ]; then \
+		xcrun devicectl device install app --device "$(DEVICE)" \
+			"$(DERIVED_DATA)/$(SCHEME).xcarchive/Products/Applications/$(SCHEME).app"; \
+	else \
+		device_count=$$(xcrun xcdevice list 2>/dev/null | plutil -convert json -o - -- - | \
+			/usr/bin/ruby -rjson -e 'devices = JSON.parse(STDIN.read).select { |d| d["platform"] == "com.apple.platform.iphoneos" && d["available"] != false && !d["simulator"] }; puts devices.length'); \
+		if [ "$$device_count" -ne 1 ]; then \
+			echo "Expected exactly one connected iOS device, found $$device_count."; \
+			echo "Run: make publish DEVICE='<device name or identifier>'"; \
+			exit 1; \
+		fi; \
+		device_id=$$(xcrun xcdevice list 2>/dev/null | plutil -convert json -o - -- - | \
+			/usr/bin/ruby -rjson -e 'device = JSON.parse(STDIN.read).find { |d| d["platform"] == "com.apple.platform.iphoneos" && d["available"] != false && !d["simulator"] }; puts device["identifier"]'); \
+		xcrun devicectl device install app --device "$$device_id" \
+			"$(DERIVED_DATA)/$(SCHEME).xcarchive/Products/Applications/$(SCHEME).app"; \
+	fi
 
 clean:
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) clean 2>/dev/null || true

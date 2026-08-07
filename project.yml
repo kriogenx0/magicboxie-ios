@@ -23,6 +23,9 @@ targets:
           UIColorName: LaunchBackground
           UIImageName: MBMark
         NSBluetoothAlwaysUsageDescription: "MagicBox uses Bluetooth to find and control your MagicBox player."
+        NSBonjourServices:
+          - _magicboxie._tcp
+        NSLocalNetworkUsageDescription: "MagicBox uses your local network to find your MagicBox player over WiFi."
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft

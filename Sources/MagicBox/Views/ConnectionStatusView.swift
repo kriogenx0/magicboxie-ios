@@ -4,40 +4,50 @@ struct ConnectionStatusView: View {
     @EnvironmentObject private var bleManager: BLEManager
 
     var body: some View {
-        VStack(spacing: 16) {
-            Image("MBMark")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 96, height: 96)
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
-                .padding(.bottom, 8)
-
+        HStack(spacing: 12) {
             switch bleManager.connectionState {
             case .disconnected:
-                Text("Not connected")
-                Button("Scan for MagicBox") { bleManager.retry() }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.appAccent)
+                status("Not connected", systemImage: "wifi.slash")
+                Spacer()
+                connectButton
             case .scanning:
                 ProgressView()
                 Text("Scanning for MagicBox…")
+                Spacer()
             case .connecting:
                 ProgressView()
                 Text("Connecting…")
+                Spacer()
             case .failed(let message):
                 Text(message)
+                    .font(.caption)
+                    .lineLimit(2)
                     .foregroundStyle(.red)
-                Button("Retry") { bleManager.retry() }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.appAccent)
+                Spacer()
+                connectButton
             case .connected:
                 EmptyView()
             }
         }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.appBackground.ignoresSafeArea())
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .background(Color.appBackground.opacity(0.96))
+    }
+
+    private var connectButton: some View {
+        Button(AppConfig.mode == .directAPI ? "Connect to Server" : "Scan for MagicBox") {
+            bleManager.retry()
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.small)
+        .tint(.appAccent)
+    }
+
+    private func status(_ text: String, systemImage: String) -> some View {
+        Label(text, systemImage: systemImage)
+            .font(.caption)
+            .foregroundStyle(.secondary)
     }
 }
 

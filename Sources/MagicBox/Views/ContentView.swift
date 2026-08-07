@@ -14,11 +14,10 @@ struct ContentView: View {
     var body: some View {
         NavigationStack(path: $path) {
             Group {
-                if bleManager.connectionState == .connected {
-                    MovieLibraryView(path: $path)
-                } else {
-                    ConnectionStatusView()
-                }
+                // Browsing the app must not depend on a development server or
+                // nearby device being reachable. Connection controls appear
+                // as a banner instead of replacing the entire app.
+                MovieLibraryView(path: $path)
             }
             .navigationBarHidden(true)
             .navigationDestination(for: Movie.self) { movie in
@@ -54,6 +53,9 @@ struct ContentView: View {
             }
             .safeAreaInset(edge: .top) {
                 VStack(spacing: 0) {
+                    if bleManager.connectionState != .connected {
+                        ConnectionStatusView()
+                    }
                     if AppConfig.mode == .directAPI {
                         Text("DEV MODE — Direct API (no Bluetooth)")
                             .font(.caption)

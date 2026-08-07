@@ -69,7 +69,10 @@ final class BLEManager: NSObject, ObservableObject {
             wifiDiscovery.onResolve = { [weak self] url in self?.setWiFiBaseURL(url) }
             wifiDiscovery.start()
         case .directAPI:
-            startDirectAPISession()
+            // Direct API is an optional development connection. Do not make
+            // app launch depend on a server being available; the UI exposes
+            // an explicit Connect button through `retry()`.
+            break
         }
     }
 
@@ -135,19 +138,23 @@ final class BLEManager: NSObject, ObservableObject {
     /// instead, so the real library/mpv logic can be exercised without BLE
     /// hardware or a Pi - e.g. against the Docker container on this Mac.
     private func startDirectAPISession() {
-        connectionState = .connected
+        connectionState = .connecting
         let client = DeviceHTTPClient(baseURL: AppConfig.deviceHTTPBaseURL)
-        deviceClient = client
 
         Task {
             do {
                 let deviceMovies = try await client.fetchMovies()
                 movies = deviceMovies.map { Movie(id: $0.id, title: $0.title, durationSeconds: $0.durationSeconds) }
+                deviceClient = client
+                connectionState = .connected
+                startDirectAPIStatusPolling(using: client)
             } catch {
                 connectionState = .failed("Direct API mode: \(error.localizedDescription)")
             }
         }
+    }
 
+    private func startDirectAPIStatusPolling(using client: DeviceHTTPClient) {
         statusPollTask?.cancel()
         statusPollTask = Task {
             while !Task.isCancelled {

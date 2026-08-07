@@ -11,7 +11,14 @@ enum AppMode {
 
 enum AppConfig {
     static var mode: AppMode {
+        #if DEBUG
         ProcessInfo.processInfo.environment["MAGICBOX_DIRECT_API"] == "1" ? .directAPI : .bluetooth
+        #else
+        // Direct API exists only for simulator/development workflows. A
+        // distributed application must always discover and control the real
+        // MagicBox rather than attempting to contact a developer's server.
+        .bluetooth
+        #endif
     }
 
     /// Base URL for the device's HTTP transport in direct-API mode.
