@@ -41,17 +41,17 @@ final class DeviceHTTPClient {
     }
 
     func fetchMovies() async throws -> [DeviceMovie] {
-        let (data, _) = try await session.data(from: baseURL.appendingPathComponent("movies"))
+        let (data, _) = try await session.data(from: baseURL.appendingPathComponent("api/movies"))
         return try JSONDecoder().decode([DeviceMovie].self, from: data)
     }
 
     func fetchStatus() async throws -> DeviceStatus {
-        let (data, _) = try await session.data(from: baseURL.appendingPathComponent("status"))
+        let (data, _) = try await session.data(from: baseURL.appendingPathComponent("api/status"))
         return try JSONDecoder().decode(DeviceStatus.self, from: data)
     }
 
     func sendCommand(_ opcode: DeviceOpcode, argument: Int? = nil) async throws {
-        var request = URLRequest(url: baseURL.appendingPathComponent("command"))
+        var request = URLRequest(url: baseURL.appendingPathComponent("api/command"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         var body: [String: Any] = ["opcode": opcode.rawValue]
@@ -66,7 +66,7 @@ final class DeviceHTTPClient {
     /// device so it can serve it to other devices that connect later, even
     /// with no internet access of their own.
     func uploadThumbnail(movieID: Int, imageData: Data) async throws {
-        var request = URLRequest(url: baseURL.appendingPathComponent("movies/\(movieID)/thumbnail"))
+        var request = URLRequest(url: baseURL.appendingPathComponent("api/movies/\(movieID)/thumbnail"))
         request.httpMethod = "POST"
         request.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
         request.httpBody = imageData
@@ -77,7 +77,7 @@ final class DeviceHTTPClient {
     /// so the device adds it to its library. Streams from disk rather than
     /// loading the file into memory first - these can be multi-gigabyte files.
     func uploadMovie(filename: String, fileURL: URL) async throws -> DeviceMovie {
-        var request = URLRequest(url: baseURL.appendingPathComponent("movies"))
+        var request = URLRequest(url: baseURL.appendingPathComponent("api/movies"))
         request.httpMethod = "POST"
         request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
         request.setValue(filename, forHTTPHeaderField: "X-Filename")

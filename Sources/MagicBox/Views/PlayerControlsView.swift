@@ -23,16 +23,22 @@ struct PlayerControlsView: View {
                 } label: {
                     HStack(spacing: 12) {
                         ThumbnailImage(
-                            primaryURL: AppConfig.deviceHTTPBaseURL.appendingPathComponent("movies/\(movie.id)/thumbnail"),
+                            primaryURL: AppConfig.deviceHTTPBaseURL.appendingPathComponent("api/movies/\(movie.id)/thumbnail"),
                             fallbackURL: artworkStore.artwork(for: movie.title)?.posterURL
                         )
-                        .frame(width: 40, height: 40)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .frame(width: 46, height: 46)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
 
-                        Text(movie.title)
-                            .font(.footnote)
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("NOW PLAYING")
+                                .font(.system(size: 9, weight: .bold))
+                                .tracking(1.1)
+                                .foregroundStyle(Color.appAccent)
+                            Text(movie.title)
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                        }
                     }
                 }
                 .buttonStyle(.plain)
@@ -58,6 +64,7 @@ struct PlayerControlsView: View {
                     } label: {
                         Image(systemName: bleManager.playbackState.status == .playing ? "pause.fill" : "play.fill")
                     }
+                    .tint(.appAccent)
                 }
 
                 if !bleManager.queue.isEmpty {
@@ -66,11 +73,12 @@ struct PlayerControlsView: View {
                     } label: {
                         Image(systemName: "forward.end.fill")
                     }
+                    .tint(.primary)
                 }
             }
             .font(.system(size: 22))
-            .padding(.horizontal)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
 
             // Tapping the now-playing row above toggles this open so the
             // queue can be reviewed and trimmed without leaving the library
@@ -81,6 +89,7 @@ struct PlayerControlsView: View {
                     ForEach(bleManager.queue) { queuedMovie in
                         Text(queuedMovie.title)
                             .font(.subheadline)
+                            .listRowBackground(Color.appElevatedSurface)
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     bleManager.removeFromQueue(queuedMovie)
@@ -91,9 +100,12 @@ struct PlayerControlsView: View {
                     }
                 }
                 .listStyle(.plain)
+                .scrollContentBackground(.hidden)
                 .frame(height: queueRowHeight * CGFloat(min(bleManager.queue.count, 4)))
             }
         }
+        .background(.ultraThinMaterial)
+        .background(Color.appElevatedSurface.opacity(0.92))
     }
 }
 

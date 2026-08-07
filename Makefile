@@ -61,6 +61,37 @@ build: setup
 		-derivedDataPath $(DERIVED_DATA) \
 		build
 
+publish: setup
+	xcodebuild -project $(PROJECT) -scheme $(SCHEME) \
+		-configuration Release \
+		-sdk iphoneos \
+		-derivedDataPath $(DERIVED_DATA) \
+		archive \
+		-archivePath $(DERIVED_DATA)/$(SCHEME).xcarchive
+	mkdir -p $(DERIVED_DATA)/Publish
+	cat > $(DERIVED_DATA)/ExportOptions.plist <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>compileBitcode</key>
+  <false/>
+  <key>method</key>
+  <string>development</string>
+  <key>signingStyle</key>
+  <string>automatic</string>
+  <key>stripSwiftSymbols</key>
+  <true/>
+  <key>thinning</key>
+  <string>&lt;none&gt;</string>
+</dict>
+</plist>
+EOF
+	xcodebuild -exportArchive \
+		-archivePath $(DERIVED_DATA)/$(SCHEME).xcarchive \
+		-exportPath $(DERIVED_DATA)/Publish \
+		-exportOptionsPlist $(DERIVED_DATA)/ExportOptions.plist
+
 clean:
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) clean 2>/dev/null || true
 	rm -rf $(DERIVED_DATA)

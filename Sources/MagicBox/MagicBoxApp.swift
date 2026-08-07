@@ -11,6 +11,7 @@ struct MagicBoxApp: App {
                 .environmentObject(bleManager)
                 .environmentObject(artworkStore)
                 .preferredColorScheme(.dark)
+                .tint(.appAccent)
                 .onOpenURL { url in
                     guard url == SharedUploadStore.importURL else { return }
                     Task {

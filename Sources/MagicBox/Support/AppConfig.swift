@@ -25,4 +25,12 @@ enum AppConfig {
     static var tmdbAPIKey: String {
         Bundle.main.object(forInfoDictionaryKey: "TMDB_API_KEY") as? String ?? ""
     }
+
+    /// Base URL for MagicBox-web, the home media server movies are
+    /// downloaded from before being pushed onward to the device. Distinct
+    /// from `deviceHTTPBaseURL`, which is the Raspberry Pi device itself.
+    static var magicBoxWebBaseURL: URL {
+        let raw = ProcessInfo.processInfo.environment["MAGICBOX_WEB_URL"] ?? "http://localhost:8080"
+        return URL(string: raw) ?? URL(string: "http://localhost:8080")!
+    }
 }

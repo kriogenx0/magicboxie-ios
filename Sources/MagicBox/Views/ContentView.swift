@@ -9,6 +9,7 @@ struct ContentView: View {
     // Array-based path (rather than navigationDestination(item:)) since that
     // needs iOS 17 and this project targets 16.
     @State private var path: [Movie] = []
+    @State private var showingRemoteLibrary = false
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -22,6 +23,34 @@ struct ContentView: View {
             .navigationBarHidden(true)
             .navigationDestination(for: Movie.self) { movie in
                 MovieDetailView(movie: movie, artwork: artworkStore.artwork(for: movie.title))
+            }
+            .overlay(alignment: .topTrailing) {
+                // Downloading from MagicBox-web pushes onward via
+                // BLEManager.uploadMovieIfNeeded, so this only makes sense
+                // once actually connected to a device.
+                if bleManager.connectionState == .connected {
+                    Button {
+                        showingRemoteLibrary = true
+                    } label: {
+                        Image(systemName: "icloud.and.arrow.down")
+                            .foregroundStyle(.white)
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(width: 34, height: 34)
+                            .background(Color.white.opacity(0.12), in: Circle())
+                    }
+                    .padding(.top, 7)
+                    .padding(.trailing, 12)
+                }
+            }
+            .sheet(isPresented: $showingRemoteLibrary) {
+                NavigationStack {
+                    RemoteLibraryView()
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarLeading) {
+                                Button("Close") { showingRemoteLibrary = false }
+                            }
+                        }
+                }
             }
             .safeAreaInset(edge: .top) {
                 VStack(spacing: 0) {

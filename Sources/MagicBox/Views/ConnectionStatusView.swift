@@ -10,6 +10,7 @@ struct ConnectionStatusView: View {
                 Text("Not connected")
                 Button("Scan for MagicBox") { bleManager.retry() }
                     .buttonStyle(.borderedProminent)
+                    .tint(.appAccent)
             case .scanning:
                 ProgressView()
                 Text("Scanning for MagicBox…")
@@ -21,11 +22,14 @@ struct ConnectionStatusView: View {
                     .foregroundStyle(.red)
                 Button("Retry") { bleManager.retry() }
                     .buttonStyle(.borderedProminent)
+                    .tint(.appAccent)
             case .connected:
                 EmptyView()
             }
         }
         .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.appBackground.ignoresSafeArea())
     }
 }
 

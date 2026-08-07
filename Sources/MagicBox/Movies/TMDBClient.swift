@@ -5,15 +5,25 @@ struct TMDBMovie: Decodable, Identifiable, Hashable {
     let title: String
     let overview: String
     let posterPath: String?
+    let backdropPath: String?
 
     enum CodingKeys: String, CodingKey {
         case id, title, overview
         case posterPath = "poster_path"
+        case backdropPath = "backdrop_path"
     }
 
     var posterURL: URL? {
         guard let posterPath else { return nil }
         return URL(string: "https://image.tmdb.org/t/p/w342\(posterPath)")
+    }
+
+    /// Wide promotional art used for the hero banner and detail-view header;
+    /// falls back to nil (rather than the poster) so callers can decide
+    /// their own fallback treatment for the different aspect ratio.
+    var backdropURL: URL? {
+        guard let backdropPath else { return nil }
+        return URL(string: "https://image.tmdb.org/t/p/w780\(backdropPath)")
     }
 }
 
