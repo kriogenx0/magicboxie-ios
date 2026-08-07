@@ -10,15 +10,6 @@ enum ConnectionState: Equatable {
     case failed(String)
 }
 
-/// Which transport is actually carrying movies/status/commands right now.
-/// Distinct from AppConfig.mode (a build-time choice): this tracks the
-/// user's runtime choice to switch a BLE session over to WiFi once the
-/// device's HTTP address has been discovered.
-enum ActiveTransport: Equatable {
-    case bluetooth
-    case wifi(URL)
-}
-
 /// Central-role BLE client: scans for the MagicBox peripheral, discovers the
 /// Media Control Service, and exposes its state to SwiftUI.
 ///
@@ -34,10 +25,12 @@ final class BLEManager: NSObject, ObservableObject {
     @Published private(set) var connectionState: ConnectionState = .disconnected
     @Published private(set) var movies: [Movie] = []
     @Published private(set) var playbackState: PlaybackState = .idle
-    /// Set once a BLE-connected device reports its own HTTP address; the UI
-    /// offers switching to it since WiFi carries bulk data far better than BLE.
-    @Published private(set) var suggestedWiFiURL: URL?
-    @Published private(set) var activeTransport: ActiveTransport = .bluetooth
+    /// The device's own HTTP base URL, once known - from whichever resolves
+    /// first: mDNS (WiFiDeviceDiscovery, independent of BLE) or, as a
+    /// fallback for when mDNS multicast doesn't reach the device, the BLE
+    /// networkInfo characteristic. Used only for bulk data (movie/thumbnail
+    /// uploads) - control always goes over BLE regardless of this.
+    @Published private(set) var wifiBaseURL: URL?
     /// Set the instant a movie is tapped, before the device has confirmed
     /// anything - lets the UI show that movie in the controls with a loading
     /// state immediately, rather than waiting on a round trip first. Cleared
@@ -63,21 +56,18 @@ final class BLEManager: NSObject, ObservableObject {
     private var libraryCharacteristic: CBCharacteristic?
     private var networkInfoCharacteristic: CBCharacteristic?
 
+    private let wifiDiscovery = WiFiDeviceDiscovery()
     private var deviceClient: DeviceHTTPClient?
     private var statusPollTask: Task<Void, Never>?
     private var blePollTask: Task<Void, Never>?
-
-    /// What play/pause/etc. actually use: a build-time direct-API dev session
-    /// always uses WiFi; otherwise it's whatever the user has chosen at runtime.
-    private var effectiveTransport: ActiveTransport {
-        mode == .directAPI ? .wifi(AppConfig.deviceHTTPBaseURL) : activeTransport
-    }
 
     override init() {
         super.init()
         switch mode {
         case .bluetooth:
             centralManager = CBCentralManager(delegate: self, queue: nil)
+            wifiDiscovery.onResolve = { [weak self] url in self?.setWiFiBaseURL(url) }
+            wifiDiscovery.start()
         case .directAPI:
             startDirectAPISession()
         }
@@ -86,6 +76,16 @@ final class BLEManager: NSObject, ObservableObject {
     deinit {
         statusPollTask?.cancel()
         blePollTask?.cancel()
+    }
+
+    /// Accepts the first WiFi URL from whichever source resolves first (mDNS
+    /// or the BLE networkInfo characteristic) and sticks with it for this
+    /// BLEManager's lifetime - mirrors BLE's own "first peripheral found
+    /// wins" behavior in `didDiscover`.
+    private func setWiFiBaseURL(_ url: URL) {
+        guard wifiBaseURL == nil else { return }
+        wifiBaseURL = url
+        deviceClient = DeviceHTTPClient(baseURL: url)
     }
 
     /// Safety net against a missed BLE notification: forces a fresh status
@@ -127,41 +127,6 @@ final class BLEManager: NSObject, ObservableObject {
         case .directAPI:
             startDirectAPISession()
         }
-    }
-
-    // MARK: - Runtime WiFi switch (BLE mode only)
-
-    /// Called when the user accepts the "switch to WiFi" suggestion: from then
-    /// on, movies/status/commands go over HTTP to the address the device
-    /// itself reported, instead of BLE GATT reads/writes/notifications.
-    func switchToWiFi() {
-        guard mode == .bluetooth, let url = suggestedWiFiURL else { return }
-        let client = DeviceHTTPClient(baseURL: url)
-        deviceClient = client
-        activeTransport = .wifi(url)
-
-        Task {
-            do {
-                let deviceMovies = try await client.fetchMovies()
-                movies = deviceMovies.map { Movie(id: $0.id, title: $0.title, durationSeconds: $0.durationSeconds) }
-            } catch {
-                // WiFi turned out not to be reachable after all - fall back to BLE.
-                activeTransport = .bluetooth
-            }
-        }
-
-        statusPollTask?.cancel()
-        statusPollTask = Task {
-            while !Task.isCancelled {
-                await refreshDirectAPIStatus(using: client)
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-            }
-        }
-    }
-
-    /// Dismisses the suggestion without switching; stays on BLE.
-    func dismissWiFiSuggestion() {
-        suggestedWiFiURL = nil
     }
 
     // MARK: - Direct-API dev mode (no Bluetooth)
@@ -293,16 +258,16 @@ final class BLEManager: NSObject, ObservableObject {
     // MARK: - Transport commands
 
     func play() {
-        switch effectiveTransport {
+        switch mode {
         case .bluetooth: sendCommand(.play)
-        case .wifi: sendDirectAPICommand(.play)
+        case .directAPI: sendDirectAPICommand(.play)
         }
     }
 
     func pause() {
-        switch effectiveTransport {
+        switch mode {
         case .bluetooth: sendCommand(.pause)
-        case .wifi: sendDirectAPICommand(.pause)
+        case .directAPI: sendDirectAPICommand(.pause)
         }
     }
 
@@ -312,16 +277,16 @@ final class BLEManager: NSObject, ObservableObject {
         pendingMovie = nil
         currentMovie = nil
         queue.removeAll()
-        switch effectiveTransport {
+        switch mode {
         case .bluetooth: sendCommand(.stop)
-        case .wifi: sendDirectAPICommand(.stop)
+        case .directAPI: sendDirectAPICommand(.stop)
         }
     }
 
     func seek(toSeconds seconds: Int) {
-        switch effectiveTransport {
+        switch mode {
         case .bluetooth: sendCommand(.seek, argument: UInt32(max(0, seconds)))
-        case .wifi: sendDirectAPICommand(.seek, argument: max(0, seconds))
+        case .directAPI: sendDirectAPICommand(.seek, argument: max(0, seconds))
         }
     }
 
@@ -362,11 +327,11 @@ final class BLEManager: NSObject, ObservableObject {
         let next = queue.removeFirst()
         pendingMovie = next
         currentMovie = next
-        switch effectiveTransport {
+        switch mode {
         case .bluetooth:
             sendCommand(.selectMovie, argument: UInt32(next.id))
             sendCommand(.play)
-        case .wifi:
+        case .directAPI:
             sendDirectAPICommand(.selectMovie, argument: next.id)
             sendDirectAPICommand(.play)
         }
@@ -415,8 +380,9 @@ extension BLEManager: CBCentralManagerDelegate {
         statusCharacteristic = nil
         libraryCharacteristic = nil
         networkInfoCharacteristic = nil
-        suggestedWiFiURL = nil
-        activeTransport = .bluetooth
+        // wifiBaseURL/deviceClient are deliberately left as-is - WiFi
+        // reachability doesn't depend on a live BLE session (the phone can
+        // walk out of BLE range while staying on the same WiFi network).
         pendingMovie = nil
         currentMovie = nil
         connectionState = .disconnected
@@ -478,7 +444,7 @@ extension BLEManager: CBPeripheralDelegate {
         case MediaControlProtocol.libraryCharacteristicUUID:
             movies = MediaControlProtocol.decodeLibrary(data)
         case MediaControlProtocol.networkInfoCharacteristicUUID:
-            suggestedWiFiURL = MediaControlProtocol.decodeNetworkURL(data)
+            if let url = MediaControlProtocol.decodeNetworkURL(data) { setWiFiBaseURL(url) }
         default:
             break
         }

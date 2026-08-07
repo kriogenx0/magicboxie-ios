@@ -8,14 +8,26 @@ import UniformTypeIdentifiers
 final class ShareViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = UIColor(red: 0.06, green: 0.06, blue: 0.07, alpha: 1)
+
+        let mark = UIImageView(image: UIImage(named: "MBMark"))
+        mark.contentMode = .scaleAspectFit
+        mark.layer.cornerRadius = 18
+        mark.clipsToBounds = true
+        mark.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(mark)
 
         let label = UILabel()
         label.text = "Adding to MagicBox…"
         label.textAlignment = .center
+        label.textColor = .white
         label.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(label)
         NSLayoutConstraint.activate([
+            mark.widthAnchor.constraint(equalToConstant: 80),
+            mark.heightAnchor.constraint(equalToConstant: 80),
+            mark.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            mark.bottomAnchor.constraint(equalTo: label.topAnchor, constant: -20),
             label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             label.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])

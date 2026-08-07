@@ -14,12 +14,31 @@ enum AppConfig {
         ProcessInfo.processInfo.environment["MAGICBOX_DIRECT_API"] == "1" ? .directAPI : .bluetooth
     }
 
-    /// Base URL for the device's HTTP transport in direct-API mode. Defaults to
-    /// localhost, which works from the iOS Simulator against the Docker
-    /// container on the same Mac; point at a real device's LAN IP otherwise.
+    /// Base URL for the device's HTTP transport in direct-API mode.
+    ///
+    /// Order of resolution:
+    /// 1. `MAGICBOX_DEVICE_URL`
+    /// 2. network-hosted development server at `magicboxie-device.local:8000`
+    /// 3. fallback to `localhost:8000` for simulator-local server testing.
     static var deviceHTTPBaseURL: URL {
-        let raw = ProcessInfo.processInfo.environment["MAGICBOX_DEVICE_URL"] ?? "http://localhost:8000"
-        return URL(string: raw) ?? URL(string: "http://localhost:8000")!
+        if let raw = ProcessInfo.processInfo.environment["MAGICBOX_DEVICE_URL"],
+           let url = URL(string: raw) {
+            return url
+        }
+
+        let defaultURLs = [
+            "http://magicboxie-device.local:8000",
+            "http://magicboxie-device:8000",
+            "http://localhost:8000",
+        ]
+
+        for candidate in defaultURLs {
+            if let url = URL(string: candidate) {
+                return url
+            }
+        }
+
+        return URL(string: "http://localhost:8000")!
     }
 
     static var tmdbAPIKey: String {

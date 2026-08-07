@@ -1,6 +1,6 @@
 SCHEME := MagicBox
 PROJECT := MagicBox.xcodeproj
-BUNDLE_ID := com.magicbox.app
+BUNDLE_ID := com.alexv.magicboxie.app
 DERIVED_DATA := build
 SIMULATOR_NAME ?= iPhone 17 Pro
 
@@ -66,31 +66,33 @@ publish: setup
 		-configuration Release \
 		-sdk iphoneos \
 		-derivedDataPath $(DERIVED_DATA) \
+		-allowProvisioningUpdates \
 		archive \
 		-archivePath $(DERIVED_DATA)/$(SCHEME).xcarchive
 	mkdir -p $(DERIVED_DATA)/Publish
-	cat > $(DERIVED_DATA)/ExportOptions.plist <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>compileBitcode</key>
-  <false/>
-  <key>method</key>
-  <string>development</string>
-  <key>signingStyle</key>
-  <string>automatic</string>
-  <key>stripSwiftSymbols</key>
-  <true/>
-  <key>thinning</key>
-  <string>&lt;none&gt;</string>
-</dict>
-</plist>
-EOF
+	printf '%s\n' \
+		'<?xml version="1.0" encoding="UTF-8"?>' \
+		'<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+		'<plist version="1.0">' \
+		'<dict>' \
+		'  <key>compileBitcode</key>' \
+		'  <false/>' \
+		'  <key>method</key>' \
+		'  <string>development</string>' \
+		'  <key>signingStyle</key>' \
+		'  <string>automatic</string>' \
+		'  <key>stripSwiftSymbols</key>' \
+		'  <true/>' \
+		'  <key>thinning</key>' \
+		'  <string>&lt;none&gt;</string>' \
+		'</dict>' \
+		'</plist>' \
+	> $(DERIVED_DATA)/ExportOptions.plist
 	xcodebuild -exportArchive \
 		-archivePath $(DERIVED_DATA)/$(SCHEME).xcarchive \
 		-exportPath $(DERIVED_DATA)/Publish \
 		-exportOptionsPlist $(DERIVED_DATA)/ExportOptions.plist
+	open $(DERIVED_DATA)/Publish
 
 clean:
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) clean 2>/dev/null || true

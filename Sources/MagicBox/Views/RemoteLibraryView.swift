@@ -40,6 +40,20 @@ struct RemoteLibraryView: View {
     private var loginForm: some View {
         Form {
             Section {
+                HStack {
+                    Spacer()
+                    Image("MBMark")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 88, height: 88)
+                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        .accessibilityLabel("MagicBox")
+                    Spacer()
+                }
+                .listRowBackground(Color.clear)
+            }
+
+            Section {
                 SecureField("MagicBox-web password", text: $password)
                     .textContentType(.password)
                 Button {

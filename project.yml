@@ -19,7 +19,9 @@ targets:
     info:
       path: Sources/MagicBox/Info.plist
       properties:
-        UILaunchScreen: {}
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+          UIImageName: MBMark
         NSBluetoothAlwaysUsageDescription: "MagicBox uses Bluetooth to find and control your MagicBox player."
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -38,7 +40,7 @@ targets:
           - group.com.magicbox.app
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.magicbox.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.alexv.magicboxie.app
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1,2"
         # App Groups (needed for the Share Extension hand-off) isn't honored
@@ -47,11 +49,7 @@ targets:
         # team is enough to fix this, even for Simulator-only builds.
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: K2F4FTM2XQ
-        # Adding Assets.xcassets (for the clapperboard placeholder image)
-        # makes Xcode's asset compiler look for an AppIcon set by default -
-        # there isn't one yet, so this stays empty until the app has a
-        # real icon.
-        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
   MagicBoxShareExtension:
     type: app-extension
@@ -76,7 +74,7 @@ targets:
           - group.com.magicbox.app
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.magicbox.app.ShareExtension
+        PRODUCT_BUNDLE_IDENTIFIER: com.alexv.magicboxie.app.ShareExtension
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1,2"
         SKIP_INSTALL: "YES"

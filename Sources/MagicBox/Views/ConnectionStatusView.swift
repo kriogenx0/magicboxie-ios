@@ -5,6 +5,14 @@ struct ConnectionStatusView: View {
 
     var body: some View {
         VStack(spacing: 16) {
+            Image("MBMark")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 96, height: 96)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
+                .padding(.bottom, 8)
+
             switch bleManager.connectionState {
             case .disconnected:
                 Text("Not connected")

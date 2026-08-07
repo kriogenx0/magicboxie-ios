@@ -29,10 +29,21 @@
 	<string>1</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>MagicBox uses Bluetooth to find and control your MagicBox player.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_magicboxie._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>MagicBox uses your local network to find your MagicBox player over WiFi.</string>
 	<key>TMDB_API_KEY</key>
 	<string>$(TMDB_API_KEY)</string>
 	<key>UILaunchScreen</key>
-	<dict/>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+		<key>UIImageName</key>
+		<string>MBMark</string>
+	</dict>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

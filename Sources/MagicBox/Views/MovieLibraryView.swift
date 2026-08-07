@@ -145,10 +145,12 @@ private struct BrowseHeader: View {
 
     var body: some View {
         HStack(spacing: 18) {
-            Text("MAGICBOX")
-                .font(.system(size: 21, weight: .black, design: .rounded))
-                .tracking(-1)
-                .foregroundStyle(Color.appAccent)
+            Image("MBMark")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 34, height: 34)
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .accessibilityLabel("MagicBox")
 
             Spacer()
 
