@@ -9,65 +9,47 @@ struct ContentView: View {
     // Array-based path (rather than navigationDestination(item:)) since that
     // needs iOS 17 and this project targets 16.
     @State private var path: [Movie] = []
-    @State private var showingRemoteLibrary = false
 
     var body: some View {
+        TabView {
+            moviesTab
+                .tabItem { Label("Movies", systemImage: "play.rectangle.fill") }
+            NavigationStack {
+                SettingsView()
+            }
+            .tabItem { Label("Settings", systemImage: "gearshape.fill") }
+        }
+    }
+
+    private var moviesTab: some View {
         NavigationStack(path: $path) {
-            Group {
-                // Browsing the app must not depend on a development server or
-                // nearby device being reachable. Connection controls appear
-                // as a banner instead of replacing the entire app.
-                MovieLibraryView(path: $path)
-            }
-            .navigationBarHidden(true)
-            .navigationDestination(for: Movie.self) { movie in
-                MovieDetailView(movie: movie, artwork: artworkStore.artwork(for: movie.title))
-            }
-            .overlay(alignment: .topTrailing) {
-                // Downloading from MagicBox-web pushes onward via
-                // BLEManager.uploadMovieIfNeeded, so this only makes sense
-                // once actually connected to a device.
-                if bleManager.connectionState == .connected {
-                    Button {
-                        showingRemoteLibrary = true
-                    } label: {
-                        Image(systemName: "icloud.and.arrow.down")
-                            .foregroundStyle(.white)
-                            .font(.system(size: 16, weight: .semibold))
-                            .frame(width: 34, height: 34)
-                            .background(Color.white.opacity(0.12), in: Circle())
-                    }
-                    .padding(.top, 7)
-                    .padding(.trailing, 12)
+            // Just the movie list - no top bar. Connection management lives
+            // in the Settings tab; MovieLibraryView's own empty state already
+            // tells the user to connect when there's nothing to show.
+            MovieLibraryView(path: $path)
+                // .toolbar(.hidden, for: .navigationBar) rather than the
+                // older .navigationBarHidden(true): the latter also hides
+                // this NavigationStack's enclosing TabView's tab bar (a
+                // known SwiftUI/UIKit quirk) since both were once tied to
+                // the same UINavigationController chrome-hiding mechanism.
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(for: Movie.self) { movie in
+                    MovieDetailView(movie: movie, artwork: artworkStore.artwork(for: movie.title))
                 }
-            }
-            .sheet(isPresented: $showingRemoteLibrary) {
-                NavigationStack {
-                    RemoteLibraryView()
-                        .toolbar {
-                            ToolbarItem(placement: .navigationBarLeading) {
-                                Button("Close") { showingRemoteLibrary = false }
-                            }
+                .safeAreaInset(edge: .top) {
+                    VStack(spacing: 0) {
+                        if AppConfig.mode == .directAPI {
+                            Text("DEV MODE — Direct API (no Bluetooth)")
+                                .font(.caption)
+                                .padding(6)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.yellow.opacity(0.3))
                         }
-                }
-            }
-            .safeAreaInset(edge: .top) {
-                VStack(spacing: 0) {
-                    if bleManager.connectionState != .connected {
-                        ConnectionStatusView()
-                    }
-                    if AppConfig.mode == .directAPI {
-                        Text("DEV MODE — Direct API (no Bluetooth)")
-                            .font(.caption)
-                            .padding(6)
-                            .frame(maxWidth: .infinity)
-                            .background(Color.yellow.opacity(0.3))
-                    }
-                    if let status = bleManager.shareImportStatus {
-                        ShareImportBanner(status: status, onDismiss: { bleManager.dismissShareImportStatus() })
+                        if let status = bleManager.shareImportStatus {
+                            ShareImportBanner(status: status, onDismiss: { bleManager.dismissShareImportStatus() })
+                        }
                     }
                 }
-            }
         }
     }
 }

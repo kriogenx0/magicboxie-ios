@@ -11,12 +11,18 @@ enum AppMode {
 
 enum AppConfig {
     static var mode: AppMode {
-        #if DEBUG
+        #if DEBUG && targetEnvironment(simulator)
+        // Gated on the Simulator specifically, not just DEBUG: the Xcode
+        // scheme's Run action sets MAGICBOX_DIRECT_API=1 for convenience
+        // (see project.yml), and that action's config is Debug regardless of
+        // whether the destination is the Simulator or a physical device
+        // plugged in over USB. Without the extra simulator check, running
+        // that same scheme straight onto a real device would silently skip
+        // Bluetooth entirely. A real device - Debug-run from Xcode, ad-hoc,
+        // TestFlight, or App Store - must always discover and control the
+        // actual MagicBox rather than talking to a developer's server.
         ProcessInfo.processInfo.environment["MAGICBOX_DIRECT_API"] == "1" ? .directAPI : .bluetooth
         #else
-        // Direct API exists only for simulator/development workflows. A
-        // distributed application must always discover and control the real
-        // MagicBox rather than attempting to contact a developer's server.
         .bluetooth
         #endif
     }
