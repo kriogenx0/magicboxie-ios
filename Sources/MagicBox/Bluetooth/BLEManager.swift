@@ -121,6 +121,11 @@ final class BLEManager: NSObject, ObservableObject {
         guard wifiBaseURL == nil else { return }
         wifiBaseURL = url
         deviceClient = DeviceHTTPClient(baseURL: url)
+        // The initial library read (right after connecting) had to use
+        // BLE, whose 512-byte cap may have silently truncated a real
+        // library - upgrade to the uncapped HTTP source now that it's
+        // available, rather than leaving that stuck until a manual refresh.
+        refreshLibrary()
     }
 
     /// Safety net against a missed BLE notification: forces a fresh status
@@ -391,18 +396,24 @@ final class BLEManager: NSObject, ObservableObject {
     /// before the device finished scanning its content directory (BLE comes
     /// up well before that scan completes), the app is left showing an
     /// empty library forever with nothing to prompt a retry.
+    ///
+    /// Prefers WiFi/HTTP whenever it's available, in both modes: BLE's
+    /// library characteristic is capped at 512 bytes (the hard maximum a
+    /// single BLE attribute value can ever be - not a limit that can just
+    /// be raised), which silently drops movies past that point once a real
+    /// library's titles push the encoded size over it. HTTP has no such
+    /// ceiling, matching how thumbnails already prefer WiFi over BLE for
+    /// the same reason (bulk data over BLE's tiny ATT payloads).
     func refreshLibrary() {
-        switch mode {
-        case .bluetooth:
-            guard let peripheral = devicePeripheral, let characteristic = libraryCharacteristic else { return }
-            peripheral.readValue(for: characteristic)
-        case .directAPI:
-            guard let client = deviceClient else { return }
+        if let client = deviceClient {
             Task {
                 guard let deviceMovies = try? await client.fetchMovies() else { return }
                 movies = deviceMovies.map { Movie(id: $0.id, title: $0.title, durationSeconds: $0.durationSeconds) }
             }
+            return
         }
+        guard mode == .bluetooth, let peripheral = devicePeripheral, let characteristic = libraryCharacteristic else { return }
+        peripheral.readValue(for: characteristic)
     }
 
     // MARK: - Queue
