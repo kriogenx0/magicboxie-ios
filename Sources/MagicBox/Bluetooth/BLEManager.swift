@@ -297,6 +297,38 @@ final class BLEManager: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - Forgetting the device
+
+    /// Disconnects and clears everything the app itself has learned about
+    /// the device, then starts a fresh scan. Useful after the device's BLE
+    /// service has been redeployed/restarted, since that reassigns GATT
+    /// attribute handles - iOS caches the old ones per peripheral and can
+    /// get stuck trying to use them (surfaces as reads/writes silently
+    /// failing or an "Invalid Handle" error at the protocol level). This
+    /// only clears what the app can control; iOS's own system-level cache
+    /// is outside any app's reach - if the problem persists after this,
+    /// a real fix needs Settings > Bluetooth > (device) > Forget This
+    /// Device, which only the user can do.
+    func forgetDevice() {
+        guard mode == .bluetooth else { return }
+        if let peripheral = devicePeripheral {
+            centralManager.cancelPeripheralConnection(peripheral)
+        }
+        devicePeripheral = nil
+        commandCharacteristic = nil
+        statusCharacteristic = nil
+        libraryCharacteristic = nil
+        networkInfoCharacteristic = nil
+        movies = []
+        playbackState = .idle
+        pendingMovie = nil
+        currentMovie = nil
+        queue.removeAll()
+        blePollTask?.cancel()
+        connectionState = .disconnected
+        startScanning()
+    }
+
     // MARK: - Library
 
     /// Re-reads the movie library from the device. Useful because the app

@@ -47,6 +47,10 @@ struct DeviceConnectionView: View {
                     .foregroundStyle(.secondary)
                 movieList
             }
+
+            if AppConfig.mode == .bluetooth {
+                forgetDeviceSection
+            }
         }
         .padding(.horizontal)
         .padding(.top)
@@ -91,6 +95,26 @@ struct DeviceConnectionView: View {
             }
             .scrollContentBackground(.hidden)
             .listStyle(.plain)
+        }
+    }
+
+    /// Clears what the app itself knows about the device and rescans - see
+    /// BLEManager.forgetDevice(). Deliberately honest in the caption that
+    /// this can't reach iOS's own system-level Bluetooth cache: only
+    /// Settings > Bluetooth > Forget This Device can do that, and no app
+    /// can trigger it programmatically.
+    private var forgetDeviceSection: some View {
+        VStack(spacing: 6) {
+            Divider()
+                .padding(.vertical, 8)
+            Button("Forget Device", role: .destructive) {
+                bleManager.forgetDevice()
+            }
+            .buttonStyle(.bordered)
+            Text("Clears this app's own connection info and rescans. If problems persist, also use iOS Settings ▸ Bluetooth ▸ MagicBoxieDevice ▸ Forget This Device.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
     }
 
