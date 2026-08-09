@@ -47,6 +47,10 @@ final class BLEManager: NSObject, ObservableObject {
     /// Up-next queue. The currently playing/loading movie is never in here -
     /// it's whichever was most recently popped off the front.
     @Published private(set) var queue: [Movie] = []
+    /// What played before the current movie, most-recent-last - used by
+    /// skipToPrevious(). Not surfaced in the UI; queue is the only
+    /// user-visible list.
+    private var history: [Movie] = []
 
     private let mode = AppConfig.mode
     private var centralManager: CBCentralManager!
@@ -284,6 +288,7 @@ final class BLEManager: NSObject, ObservableObject {
         pendingMovie = nil
         currentMovie = nil
         queue.removeAll()
+        history.removeAll()
         switch mode {
         case .bluetooth: sendCommand(.stop)
         case .directAPI: sendDirectAPICommand(.stop)
@@ -295,6 +300,14 @@ final class BLEManager: NSObject, ObservableObject {
         case .bluetooth: sendCommand(.seek, argument: UInt32(max(0, seconds)))
         case .directAPI: sendDirectAPICommand(.seek, argument: max(0, seconds))
         }
+    }
+
+    func skipForward15() {
+        seek(toSeconds: playbackState.positionSeconds + 15)
+    }
+
+    func skipBackward15() {
+        seek(toSeconds: playbackState.positionSeconds - 15)
     }
 
     // MARK: - Forgetting the device
@@ -382,17 +395,38 @@ final class BLEManager: NSObject, ObservableObject {
         queue.removeAll { $0.id == movie.id }
     }
 
+    /// Standard media-player convention: restart the current movie if
+    /// meaningfully into it, otherwise actually go back to whatever played
+    /// before it (if anything) - re-queuing the current movie at the front
+    /// rather than dropping it, so skipping back doesn't lose your place.
+    func skipToPrevious() {
+        guard playbackState.positionSeconds <= 3, let previous = history.popLast() else {
+            seek(toSeconds: 0)
+            return
+        }
+        if let current = currentMovie {
+            queue.insert(current, at: 0)
+        }
+        playImmediately(previous)
+    }
+
     private func playNextInQueue() {
         guard !queue.isEmpty else { return }
-        let next = queue.removeFirst()
-        pendingMovie = next
-        currentMovie = next
+        if let current = currentMovie {
+            history.append(current)
+        }
+        playImmediately(queue.removeFirst())
+    }
+
+    private func playImmediately(_ movie: Movie) {
+        pendingMovie = movie
+        currentMovie = movie
         switch mode {
         case .bluetooth:
-            sendCommand(.selectMovie, argument: UInt32(next.id))
+            sendCommand(.selectMovie, argument: UInt32(movie.id))
             sendCommand(.play)
         case .directAPI:
-            sendDirectAPICommand(.selectMovie, argument: next.id)
+            sendDirectAPICommand(.selectMovie, argument: movie.id)
             sendDirectAPICommand(.play)
         }
     }
