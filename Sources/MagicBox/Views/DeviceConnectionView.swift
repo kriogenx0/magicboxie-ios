@@ -5,6 +5,7 @@ import SwiftUI
 /// top banner does (ConnectionStatusView), just with room to breathe.
 struct DeviceConnectionView: View {
     @EnvironmentObject private var bleManager: BLEManager
+    @State private var showingShutdownConfirmation = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -46,6 +47,7 @@ struct DeviceConnectionView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 movieList
+                powerOffSection
             }
 
             if AppConfig.mode == .bluetooth {
@@ -68,6 +70,14 @@ struct DeviceConnectionView: View {
                     }
                 }
             }
+        }
+        .alert("Power Off Device?", isPresented: $showingShutdownConfirmation) {
+            Button("Power Off", role: .destructive) {
+                bleManager.shutdownDevice()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The device will shut down completely. There's no way to turn it back on remotely - you'll need to physically power-cycle it.")
         }
     }
 
@@ -95,6 +105,21 @@ struct DeviceConnectionView: View {
             }
             .scrollContentBackground(.hidden)
             .listStyle(.plain)
+        }
+    }
+
+    /// Only shown when actually connected (BLE-only, per
+    /// BLEManager.shutdownDevice()) - needs a live connection to send the
+    /// command through in the first place. Confirms first since there's no
+    /// remote way to undo this.
+    @ViewBuilder
+    private var powerOffSection: some View {
+        if AppConfig.mode == .bluetooth {
+            Button("Power Off Device", role: .destructive) {
+                showingShutdownConfirmation = true
+            }
+            .buttonStyle(.bordered)
+            .padding(.top, 4)
         }
     }
 

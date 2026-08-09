@@ -310,6 +310,16 @@ final class BLEManager: NSObject, ObservableObject {
         seek(toSeconds: playbackState.positionSeconds - 15)
     }
 
+    /// Powers off the physical device entirely - not just stop playback.
+    /// BLE-only: irrelevant in Direct-API dev mode, which talks to a Docker
+    /// container on this Mac, not a real Pi. The UI must confirm before
+    /// calling this - there's no remote way to turn the device back on,
+    /// only physically power-cycling it.
+    func shutdownDevice() {
+        guard mode == .bluetooth else { return }
+        sendCommand(.shutdown)
+    }
+
     // MARK: - Forgetting the device
 
     /// Disconnects and clears everything the app itself has learned about

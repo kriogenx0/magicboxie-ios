@@ -17,6 +17,7 @@ enum MediaControlProtocol {
         case stop = 0x03
         case selectMovie = 0x04
         case seek = 0x05
+        case shutdown = 0x06
     }
 
     /// 1-byte opcode, optionally followed by a little-endian UInt32 argument.
