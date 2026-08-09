@@ -10,6 +10,9 @@ enum MediaControlProtocol {
     /// Read-only: the device's own "http://ip:port", so a BLE-connected app can
     /// discover it and offer to switch to WiFi for bulk data (thumbnails, library).
     static let networkInfoCharacteristicUUID = CBUUID(string: "3E2C1A00-3B42-4B7E-9C3E-000000000005")
+    /// Read-only + notify: which movie (if any) the device is currently
+    /// re-encoding in its background transcode worker.
+    static let transcodeStatusCharacteristicUUID = CBUUID(string: "3E2C1A00-3B42-4B7E-9C3E-000000000006")
 
     enum Opcode: UInt8 {
         case play = 0x01
@@ -63,5 +66,13 @@ enum MediaControlProtocol {
     static func decodeNetworkURL(_ data: Data) -> URL? {
         guard let text = String(data: data, encoding: .utf8) else { return nil }
         return URL(string: text)
+    }
+
+    /// 2 bytes little-endian movie ID (0xFFFF = nothing currently transcoding).
+    static func decodeTranscodeStatus(_ data: Data) -> Int? {
+        guard data.count >= 2 else { return nil }
+        let bytes = [UInt8](data)
+        let raw = UInt16(bytes[0]) | (UInt16(bytes[1]) << 8)
+        return raw == UInt16.max ? nil : Int(raw)
     }
 }

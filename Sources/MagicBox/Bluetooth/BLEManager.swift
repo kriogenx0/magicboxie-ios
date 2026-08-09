@@ -51,6 +51,9 @@ final class BLEManager: NSObject, ObservableObject {
     /// skipToPrevious(). Not surfaced in the UI; queue is the only
     /// user-visible list.
     private var history: [Movie] = []
+    /// The movie id the device is currently re-encoding in its background
+    /// transcode worker, if any - see TranscodeService on the device side.
+    @Published private(set) var transcodingMovieID: Int?
 
     private let mode = AppConfig.mode
     private var centralManager: CBCentralManager!
@@ -59,6 +62,7 @@ final class BLEManager: NSObject, ObservableObject {
     private var statusCharacteristic: CBCharacteristic?
     private var libraryCharacteristic: CBCharacteristic?
     private var networkInfoCharacteristic: CBCharacteristic?
+    private var transcodeStatusCharacteristic: CBCharacteristic?
 
     private let wifiDiscovery = WiFiDeviceDiscovery()
     private var deviceClient: DeviceHTTPClient?
@@ -342,11 +346,13 @@ final class BLEManager: NSObject, ObservableObject {
         statusCharacteristic = nil
         libraryCharacteristic = nil
         networkInfoCharacteristic = nil
+        transcodeStatusCharacteristic = nil
         movies = []
         playbackState = .idle
         pendingMovie = nil
         currentMovie = nil
         queue.removeAll()
+        transcodingMovieID = nil
         blePollTask?.cancel()
         connectionState = .disconnected
         startScanning()
@@ -505,7 +511,8 @@ extension BLEManager: CBPeripheralDelegate {
                     MediaControlProtocol.commandCharacteristicUUID,
                     MediaControlProtocol.statusCharacteristicUUID,
                     MediaControlProtocol.libraryCharacteristicUUID,
-                    MediaControlProtocol.networkInfoCharacteristicUUID
+                    MediaControlProtocol.networkInfoCharacteristicUUID,
+                    MediaControlProtocol.transcodeStatusCharacteristicUUID
                 ],
                 for: service
             )
@@ -528,6 +535,10 @@ extension BLEManager: CBPeripheralDelegate {
             case MediaControlProtocol.networkInfoCharacteristicUUID:
                 networkInfoCharacteristic = characteristic
                 peripheral.readValue(for: characteristic)
+            case MediaControlProtocol.transcodeStatusCharacteristicUUID:
+                transcodeStatusCharacteristic = characteristic
+                peripheral.setNotifyValue(true, for: characteristic)
+                peripheral.readValue(for: characteristic)
             default:
                 break
             }
@@ -549,6 +560,8 @@ extension BLEManager: CBPeripheralDelegate {
             movies = MediaControlProtocol.decodeLibrary(data)
         case MediaControlProtocol.networkInfoCharacteristicUUID:
             if let url = MediaControlProtocol.decodeNetworkURL(data) { setWiFiBaseURL(url) }
+        case MediaControlProtocol.transcodeStatusCharacteristicUUID:
+            transcodingMovieID = MediaControlProtocol.decodeTranscodeStatus(data)
         default:
             break
         }

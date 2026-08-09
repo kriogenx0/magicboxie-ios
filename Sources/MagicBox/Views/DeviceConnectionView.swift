@@ -94,12 +94,20 @@ struct DeviceConnectionView: View {
                 .foregroundStyle(.secondary)
         } else {
             List(bleManager.movies) { movie in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(movie.title)
-                        .foregroundStyle(.white)
-                    Text(Self.duration(movie.durationSeconds))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(movie.title)
+                            .foregroundStyle(.white)
+                        Text(Self.duration(movie.durationSeconds))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    if bleManager.transcodingMovieID == movie.id {
+                        Spacer()
+                        Label("Transcoding", systemImage: "arrow.triangle.2.circlepath")
+                            .font(.caption2)
+                            .foregroundStyle(Color.appAccent)
+                    }
                 }
                 .listRowBackground(Color.appBackground)
             }

@@ -104,7 +104,8 @@ private struct MovieShelf: View {
                             PosterCard(
                                 title: movie.title,
                                 primaryURL: thumbnailURL(for: movie),
-                                fallbackURL: artworkStore.artwork(for: movie.title)?.posterURL
+                                fallbackURL: artworkStore.artwork(for: movie.title)?.posterURL,
+                                isTranscoding: bleManager.transcodingMovieID == movie.id
                             )
                         }
                         .buttonStyle(.plain)

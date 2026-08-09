@@ -9,6 +9,9 @@ struct PosterCard: View {
     let title: String
     let primaryURL: URL?
     let fallbackURL: URL?
+    /// Whether the device is currently re-encoding this movie in its
+    /// background transcode worker - see BLEManager.transcodingMovieID.
+    var isTranscoding: Bool = false
 
     static let width: CGFloat = 126
 
@@ -20,6 +23,16 @@ struct PosterCard: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
                         .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+                }
+                .overlay(alignment: .topTrailing) {
+                    if isTranscoding {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(5)
+                            .background(.ultraThinMaterial, in: Circle())
+                            .padding(6)
+                    }
                 }
                 .shadow(color: .black.opacity(0.5), radius: 5, y: 3)
 
