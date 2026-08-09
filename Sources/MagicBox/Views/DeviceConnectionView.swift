@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Full-screen device connection status/control, reached from Settings.
-/// Shows the same BLEManager.connectionState the Movies tab's compact
-/// top banner does (ConnectionStatusView), just with room to breathe.
+/// Shows the same BLEManager.connectionState the Movies view's inline
+/// prompt does (ConnectionStatusView), just with room to breathe.
 struct DeviceConnectionView: View {
     @EnvironmentObject private var bleManager: BLEManager
     @State private var showingShutdownConfirmation = false
@@ -16,38 +16,17 @@ struct DeviceConnectionView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
 
-            switch bleManager.connectionState {
-            case .disconnected:
-                Text("Not connected")
-                    .foregroundStyle(.secondary)
-                Button(AppConfig.mode == .directAPI ? "Connect to Server" : "Scan for MagicBox") {
-                    bleManager.retry()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.appAccent)
-            case .scanning:
-                ProgressView()
-                Text("Scanning for MagicBox…")
-                    .foregroundStyle(.secondary)
-            case .connecting:
-                ProgressView()
-                Text("Connecting…")
-                    .foregroundStyle(.secondary)
-            case .failed(let message):
-                Text(message)
-                    .foregroundStyle(.red)
-                    .multilineTextAlignment(.center)
-                Button("Retry") { bleManager.retry() }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.appAccent)
-            case .connected:
+            if bleManager.connectionState == .connected {
                 Label("Connected", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
                 Text("\(bleManager.movies.count) movies on device")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                apiCompatibilitySection
                 movieList
                 powerOffSection
+            } else {
+                ConnectionStatusView()
             }
 
             if AppConfig.mode == .bluetooth {
@@ -79,6 +58,36 @@ struct DeviceConnectionView: View {
         } message: {
             Text("The device will shut down completely. There's no way to turn it back on remotely - you'll need to physically power-cycle it.")
         }
+    }
+
+    /// Warns when this app build and the connected device disagree on the
+    /// wire protocol (BLEManager.apiCompatibility) - most likely direction
+    /// in practice is the device being ahead, since redeploying it is a
+    /// much lighter operation than shipping a new build of this app to a
+    /// physical phone.
+    @ViewBuilder
+    private var apiCompatibilitySection: some View {
+        switch bleManager.apiCompatibility {
+        case .compatible:
+            EmptyView()
+        case .appOutdated:
+            compatibilityWarning("This device has been updated - download a new version of MagicBox to keep using all of its features.")
+        case .deviceOutdated:
+            compatibilityWarning("This device is running older software than this app expects - redeploy the latest version to it.")
+        }
+    }
+
+    private func compatibilityWarning(_ message: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.yellow)
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.leading)
+        }
+        .padding(10)
+        .background(Color.appElevatedSurface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     /// Raw list of whatever the device is currently reporting over its

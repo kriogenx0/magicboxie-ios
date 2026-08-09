@@ -10,6 +10,18 @@ enum ConnectionState: Equatable {
     case failed(String)
 }
 
+/// Whether this app build and the connected device agree on the wire
+/// protocol - see MediaControlProtocol.supportedAPIVersion.
+enum APICompatibility: Equatable {
+    /// Also covers "not known yet" (nothing read from the device so far) -
+    /// there's nothing to warn about until there's an actual mismatch.
+    case compatible
+    /// The device speaks a newer protocol than this app build understands.
+    case appOutdated
+    /// This app build expects a newer protocol than the device provides.
+    case deviceOutdated
+}
+
 /// Central-role BLE client: scans for the MagicBox peripheral, discovers the
 /// Media Control Service, and exposes its state to SwiftUI.
 ///
@@ -54,6 +66,17 @@ final class BLEManager: NSObject, ObservableObject {
     /// The movie id the device is currently re-encoding in its background
     /// transcode worker, if any - see TranscodeService on the device side.
     @Published private(set) var transcodingMovieID: Int?
+    /// The connected device's own reported wire-protocol version, once
+    /// known - see MediaControlProtocol.supportedAPIVersion and
+    /// apiCompatibility.
+    @Published private(set) var deviceAPIVersion: Int?
+
+    var apiCompatibility: APICompatibility {
+        guard let deviceAPIVersion else { return .compatible }
+        if deviceAPIVersion > MediaControlProtocol.supportedAPIVersion { return .appOutdated }
+        if deviceAPIVersion < MediaControlProtocol.supportedAPIVersion { return .deviceOutdated }
+        return .compatible
+    }
 
     private let mode = AppConfig.mode
     private var centralManager: CBCentralManager!
@@ -63,6 +86,7 @@ final class BLEManager: NSObject, ObservableObject {
     private var libraryCharacteristic: CBCharacteristic?
     private var networkInfoCharacteristic: CBCharacteristic?
     private var transcodeStatusCharacteristic: CBCharacteristic?
+    private var apiVersionCharacteristic: CBCharacteristic?
 
     private let wifiDiscovery = WiFiDeviceDiscovery()
     private var deviceClient: DeviceHTTPClient?
@@ -347,12 +371,14 @@ final class BLEManager: NSObject, ObservableObject {
         libraryCharacteristic = nil
         networkInfoCharacteristic = nil
         transcodeStatusCharacteristic = nil
+        apiVersionCharacteristic = nil
         movies = []
         playbackState = .idle
         pendingMovie = nil
         currentMovie = nil
         queue.removeAll()
         transcodingMovieID = nil
+        deviceAPIVersion = nil
         blePollTask?.cancel()
         connectionState = .disconnected
         startScanning()
@@ -512,7 +538,8 @@ extension BLEManager: CBPeripheralDelegate {
                     MediaControlProtocol.statusCharacteristicUUID,
                     MediaControlProtocol.libraryCharacteristicUUID,
                     MediaControlProtocol.networkInfoCharacteristicUUID,
-                    MediaControlProtocol.transcodeStatusCharacteristicUUID
+                    MediaControlProtocol.transcodeStatusCharacteristicUUID,
+                    MediaControlProtocol.apiVersionCharacteristicUUID
                 ],
                 for: service
             )
@@ -539,6 +566,12 @@ extension BLEManager: CBPeripheralDelegate {
                 transcodeStatusCharacteristic = characteristic
                 peripheral.setNotifyValue(true, for: characteristic)
                 peripheral.readValue(for: characteristic)
+            case MediaControlProtocol.apiVersionCharacteristicUUID:
+                // No NOTIFY - a connected device's protocol version can't
+                // change without a restart (which drops the connection
+                // anyway), so a one-time read is enough.
+                apiVersionCharacteristic = characteristic
+                peripheral.readValue(for: characteristic)
             default:
                 break
             }
@@ -562,6 +595,8 @@ extension BLEManager: CBPeripheralDelegate {
             if let url = MediaControlProtocol.decodeNetworkURL(data) { setWiFiBaseURL(url) }
         case MediaControlProtocol.transcodeStatusCharacteristicUUID:
             transcodingMovieID = MediaControlProtocol.decodeTranscodeStatus(data)
+        case MediaControlProtocol.apiVersionCharacteristicUUID:
+            deviceAPIVersion = MediaControlProtocol.decodeAPIVersion(data)
         default:
             break
         }

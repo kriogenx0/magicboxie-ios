@@ -13,6 +13,15 @@ enum MediaControlProtocol {
     /// Read-only + notify: which movie (if any) the device is currently
     /// re-encoding in its background transcode worker.
     static let transcodeStatusCharacteristicUUID = CBUUID(string: "3E2C1A00-3B42-4B7E-9C3E-000000000006")
+    /// Read-only: the device's wire-protocol version - see supportedAPIVersion.
+    static let apiVersionCharacteristicUUID = CBUUID(string: "3E2C1A00-3B42-4B7E-9C3E-000000000007")
+
+    /// The wire protocol version this app build was written against - see
+    /// the device's protocol.py API_VERSION for what bumps this and why.
+    /// Compared against the device's own reported version (decodeAPIVersion)
+    /// to detect skew and prompt for an update instead of failing in some
+    /// more confusing way further down.
+    static let supportedAPIVersion = 1
 
     enum Opcode: UInt8 {
         case play = 0x01
@@ -74,5 +83,11 @@ enum MediaControlProtocol {
         let bytes = [UInt8](data)
         let raw = UInt16(bytes[0]) | (UInt16(bytes[1]) << 8)
         return raw == UInt16.max ? nil : Int(raw)
+    }
+
+    /// 1 byte - see supportedAPIVersion.
+    static func decodeAPIVersion(_ data: Data) -> Int? {
+        guard let byte = data.first else { return nil }
+        return Int(byte)
     }
 }

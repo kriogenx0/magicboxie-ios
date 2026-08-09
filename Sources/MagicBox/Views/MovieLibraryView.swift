@@ -6,6 +6,7 @@ struct MovieLibraryView: View {
 
     @Binding var path: [Movie]
     @State private var refreshSpin = 0.0
+    @State private var showingSettings = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -25,13 +26,24 @@ struct MovieLibraryView: View {
                 await refresh()
             }
             .overlay {
-                if bleManager.movies.isEmpty {
-                    Text(emptyMessage)
+                // Not connected: explain why and offer a way to connect,
+                // rather than just an empty screen. Connected but genuinely
+                // empty: a plain, simpler message - there's no connection
+                // problem to explain or retry there.
+                if bleManager.connectionState != .connected {
+                    ConnectionStatusView()
+                } else if bleManager.movies.isEmpty {
+                    Text("No movies found on the device")
                         .foregroundStyle(.secondary)
                 }
             }
             .overlay(alignment: .topTrailing) {
-                refreshButton
+                HStack(spacing: 10) {
+                    refreshButton
+                    settingsButton
+                }
+                .padding(.top, 8)
+                .padding(.trailing, 16)
             }
 
             // Keep playback controls available without adding navigation or
@@ -41,6 +53,16 @@ struct MovieLibraryView: View {
             }
         }
         .background(Color.appBackground.ignoresSafeArea())
+        .sheet(isPresented: $showingSettings) {
+            NavigationStack {
+                SettingsView()
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("Done") { showingSettings = false }
+                        }
+                    }
+            }
+        }
     }
 
     /// bleManager.refreshLibrary() isn't itself awaitable - the BLE read
@@ -57,12 +79,6 @@ struct MovieLibraryView: View {
         try? await Task.sleep(nanoseconds: 800_000_000)
     }
 
-    private var emptyMessage: String {
-        bleManager.connectionState == .connected
-            ? "No movies found on the device"
-            : "Connect to MagicBox to load movies"
-    }
-
     private var refreshButton: some View {
         Button {
             bleManager.refreshLibrary()
@@ -75,8 +91,30 @@ struct MovieLibraryView: View {
                 .background(.ultraThinMaterial, in: Circle())
                 .rotationEffect(.degrees(refreshSpin))
         }
-        .padding(.top, 8)
-        .padding(.trailing, 16)
+    }
+
+    private var settingsButton: some View {
+        Button {
+            showingSettings = true
+        } label: {
+            Image(systemName: "gearshape.fill")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(10)
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay(alignment: .topTrailing) {
+                    // Lightweight hint that Settings has something worth
+                    // seeing (an API version mismatch) - the actual message
+                    // lives in DeviceConnectionView, not here, to keep this
+                    // screen free of banners.
+                    if bleManager.apiCompatibility != .compatible {
+                        Circle()
+                            .fill(.yellow)
+                            .frame(width: 10, height: 10)
+                            .overlay(Circle().stroke(Color.appBackground, lineWidth: 1.5))
+                    }
+                }
+        }
     }
 }
 

@@ -11,27 +11,18 @@ struct ContentView: View {
     @State private var path: [Movie] = []
 
     var body: some View {
-        TabView {
-            moviesTab
-                .tabItem { Label("Movies", systemImage: "play.rectangle.fill") }
-            NavigationStack {
-                SettingsView()
-            }
-            .tabItem { Label("Settings", systemImage: "gearshape.fill") }
-        }
-    }
-
-    private var moviesTab: some View {
         NavigationStack(path: $path) {
-            // Just the movie list - no top bar. Connection management lives
-            // in the Settings tab; MovieLibraryView's own empty state already
-            // tells the user to connect when there's nothing to show.
+            // Just the movie list - no top bar. A floating gear button
+            // (see MovieLibraryView) presents Settings as a sheet instead
+            // of a dedicated tab; connection status shows inline here too
+            // when there's nothing else to display.
             MovieLibraryView(path: $path)
                 // .toolbar(.hidden, for: .navigationBar) rather than the
-                // older .navigationBarHidden(true): the latter also hides
-                // this NavigationStack's enclosing TabView's tab bar (a
-                // known SwiftUI/UIKit quirk) since both were once tied to
-                // the same UINavigationController chrome-hiding mechanism.
+                // older .navigationBarHidden(true): the latter has a known
+                // SwiftUI/UIKit quirk of also hiding sibling chrome (e.g. an
+                // enclosing TabView's tab bar, were one ever reintroduced)
+                // since both were once tied to the same
+                // UINavigationController chrome-hiding mechanism.
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: Movie.self) { movie in
                     MovieDetailView(movie: movie, artwork: artworkStore.artwork(for: movie.title))
