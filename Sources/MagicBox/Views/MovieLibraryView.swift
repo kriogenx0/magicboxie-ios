@@ -21,6 +21,9 @@ struct MovieLibraryView: View {
                 }
                 .padding(.vertical, 16)
             }
+            .refreshable {
+                await refresh()
+            }
             .overlay {
                 if bleManager.movies.isEmpty {
                     Text(emptyMessage)
@@ -38,6 +41,20 @@ struct MovieLibraryView: View {
             }
         }
         .background(Color.appBackground.ignoresSafeArea())
+    }
+
+    /// bleManager.refreshLibrary() isn't itself awaitable - the BLE read
+    /// result arrives later via a delegate callback that updates
+    /// bleManager.movies asynchronously, not as a direct response .refreshable
+    /// can await. A short fixed delay just keeps the pull-to-refresh spinner
+    /// on screen long enough for that to land in the common case (local BLE
+    /// reads are near-instant) without adding continuation-based plumbing
+    /// for what's a cosmetic concern, not a functional one - the list
+    /// updates reactively off bleManager.movies regardless of when the
+    /// spinner itself dismisses.
+    private func refresh() async {
+        bleManager.refreshLibrary()
+        try? await Task.sleep(nanoseconds: 800_000_000)
     }
 
     private var emptyMessage: String {
