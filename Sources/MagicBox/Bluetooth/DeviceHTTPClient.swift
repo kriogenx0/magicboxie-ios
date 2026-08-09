@@ -7,10 +7,12 @@ struct DeviceMovie: Decodable {
     let id: Int
     let title: String
     let durationSeconds: Int
+    let needsTranscoding: Bool
 
     enum CodingKeys: String, CodingKey {
         case id, title
         case durationSeconds = "duration_seconds"
+        case needsTranscoding = "needs_transcoding"
     }
 }
 

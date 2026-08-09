@@ -181,7 +181,9 @@ final class BLEManager: NSObject, ObservableObject {
         Task {
             do {
                 let deviceMovies = try await client.fetchMovies()
-                movies = deviceMovies.map { Movie(id: $0.id, title: $0.title, durationSeconds: $0.durationSeconds) }
+                movies = deviceMovies.map {
+                    Movie(id: $0.id, title: $0.title, durationSeconds: $0.durationSeconds, needsTranscoding: $0.needsTranscoding)
+                }
                 deviceClient = client
                 connectionState = .connected
                 startDirectAPIStatusPolling(using: client)
@@ -231,7 +233,9 @@ final class BLEManager: NSObject, ObservableObject {
         shareImportStatus = .importing(title: title)
         do {
             let uploaded = try await client.uploadMovie(filename: fileURL.lastPathComponent, fileURL: fileURL)
-            movies.append(Movie(id: uploaded.id, title: uploaded.title, durationSeconds: uploaded.durationSeconds))
+            movies.append(
+                Movie(id: uploaded.id, title: uploaded.title, durationSeconds: uploaded.durationSeconds, needsTranscoding: uploaded.needsTranscoding)
+            )
             shareImportStatus = .succeeded(title: title)
         } catch {
             shareImportStatus = .failed(title: title)
@@ -408,7 +412,9 @@ final class BLEManager: NSObject, ObservableObject {
         if let client = deviceClient {
             Task {
                 guard let deviceMovies = try? await client.fetchMovies() else { return }
-                movies = deviceMovies.map { Movie(id: $0.id, title: $0.title, durationSeconds: $0.durationSeconds) }
+                movies = deviceMovies.map {
+                    Movie(id: $0.id, title: $0.title, durationSeconds: $0.durationSeconds, needsTranscoding: $0.needsTranscoding)
+                }
             }
             return
         }

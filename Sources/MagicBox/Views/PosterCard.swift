@@ -12,6 +12,11 @@ struct PosterCard: View {
     /// Whether the device is currently re-encoding this movie in its
     /// background transcode worker - see BLEManager.transcodingMovieID.
     var isTranscoding: Bool = false
+    /// Whether the device still needs to (re-)encode this movie at all -
+    /// true for anything TranscodeService hasn't gotten to yet, including
+    /// (but not limited to) the one movie isTranscoding is currently true
+    /// for - see Movie.needsTranscoding.
+    var needsTranscoding: Bool = false
 
     static let width: CGFloat = 126
 
@@ -29,6 +34,13 @@ struct PosterCard: View {
                         Image(systemName: "arrow.triangle.2.circlepath")
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.white)
+                            .padding(5)
+                            .background(.ultraThinMaterial, in: Circle())
+                            .padding(6)
+                    } else if needsTranscoding {
+                        Image(systemName: "hourglass")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.85))
                             .padding(5)
                             .background(.ultraThinMaterial, in: Circle())
                             .padding(6)
