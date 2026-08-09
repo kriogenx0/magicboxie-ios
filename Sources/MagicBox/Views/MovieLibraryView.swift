@@ -5,6 +5,7 @@ struct MovieLibraryView: View {
     @EnvironmentObject private var artworkStore: MovieArtworkStore
 
     @Binding var path: [Movie]
+    @State private var refreshSpin = 0.0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,6 +27,9 @@ struct MovieLibraryView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .overlay(alignment: .topTrailing) {
+                refreshButton
+            }
 
             // Keep playback controls available without adding navigation or
             // promotional chrome to the movie list itself.
@@ -40,6 +44,22 @@ struct MovieLibraryView: View {
         bleManager.connectionState == .connected
             ? "No movies found on the device"
             : "Connect to MagicBox to load movies"
+    }
+
+    private var refreshButton: some View {
+        Button {
+            bleManager.refreshLibrary()
+            withAnimation(.easeInOut(duration: 0.5)) { refreshSpin += 360 }
+        } label: {
+            Image(systemName: "arrow.clockwise")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(10)
+                .background(.ultraThinMaterial, in: Circle())
+                .rotationEffect(.degrees(refreshSpin))
+        }
+        .padding(.top, 8)
+        .padding(.trailing, 16)
     }
 }
 

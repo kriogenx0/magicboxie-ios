@@ -297,6 +297,27 @@ final class BLEManager: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - Library
+
+    /// Re-reads the movie library from the device. Useful because the app
+    /// only ever reads it once, right after connecting - if that happened
+    /// before the device finished scanning its content directory (BLE comes
+    /// up well before that scan completes), the app is left showing an
+    /// empty library forever with nothing to prompt a retry.
+    func refreshLibrary() {
+        switch mode {
+        case .bluetooth:
+            guard let peripheral = devicePeripheral, let characteristic = libraryCharacteristic else { return }
+            peripheral.readValue(for: characteristic)
+        case .directAPI:
+            guard let client = deviceClient else { return }
+            Task {
+                guard let deviceMovies = try? await client.fetchMovies() else { return }
+                movies = deviceMovies.map { Movie(id: $0.id, title: $0.title, durationSeconds: $0.durationSeconds) }
+            }
+        }
+    }
+
     // MARK: - Queue
 
     /// Adds a movie to the end of the queue. If nothing is currently playing
