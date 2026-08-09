@@ -71,6 +71,8 @@ struct NowPlayingView: View {
 
             transportControls
 
+            stopButton
+
             Spacer()
 
             if !bleManager.queue.isEmpty {
@@ -103,7 +105,7 @@ struct NowPlayingView: View {
             HStack {
                 Text(Self.formatTime(displayedPosition))
                 Spacer()
-                Text(Self.formatTime(duration))
+                Text("-\(Self.formatTime(duration - displayedPosition))")
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -163,6 +165,23 @@ struct NowPlayingView: View {
         .font(.system(size: 22))
         .foregroundStyle(.white)
         .tint(.white)
+    }
+
+    /// A clearly-labeled alternative to the chevron above, for
+    /// discoverability - functionally the same (stop, then leave this
+    /// screen). Explicit dismiss() rather than relying on stop() clearing
+    /// currentMovie to implicitly cascade-dismiss this sheet through its
+    /// now-gone presenting view, since that path isn't guaranteed to be
+    /// immediate.
+    private var stopButton: some View {
+        Button(role: .destructive) {
+            bleManager.stop()
+            dismiss()
+        } label: {
+            Label("Stop", systemImage: "stop.fill")
+                .font(.subheadline.weight(.semibold))
+        }
+        .buttonStyle(.bordered)
     }
 
     private var queueSection: some View {
