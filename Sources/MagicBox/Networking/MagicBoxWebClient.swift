@@ -16,6 +16,7 @@ private struct AuthResponse: Decodable {
 final class MagicBoxWebClient: ObservableObject {
     @Published private(set) var isAuthenticated: Bool
     @Published private(set) var movies: [RemoteMovie] = []
+    @Published private(set) var devices: [RemoteDevice] = []
     @Published var lastError: String?
 
     private var baseURL: URL
@@ -77,6 +78,7 @@ final class MagicBoxWebClient: ObservableObject {
         token = nil
         isAuthenticated = false
         movies = []
+        devices = []
     }
 
     func fetchMovies() async {
@@ -102,6 +104,30 @@ final class MagicBoxWebClient: ObservableObject {
             lastError = nil
         } catch {
             lastError = "Couldn't load movies from MagicBox-web"
+        }
+    }
+
+    /// Every magicboxie-device Pi that has ever checked in, and when it last
+    /// did - see DeviceStatusView, and ListDevices on the server.
+    func fetchDevices() async {
+        guard let token else { return }
+
+        var request = URLRequest(url: baseURL.appendingPathComponent("api/devices"))
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            if let http = response as? HTTPURLResponse, http.statusCode == 401 {
+                logout()
+                return
+            }
+            let decoded = try JSONDecoder().decode(RemoteDevicesResponse.self, from: data)
+            devices = decoded.devices
+        } catch {
+            // Best-effort and silent (unlike fetchMovies, doesn't set
+            // lastError): this is a secondary status fetch DeviceStatusView
+            // shows alongside movies, not something the login form's error
+            // footer should get clobbered by.
         }
     }
 

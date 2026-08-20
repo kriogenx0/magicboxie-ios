@@ -13,6 +13,9 @@ struct RemoteMovie: Decodable, Identifiable, Hashable {
     let runTimeTicks: Int64?
     let status: String
     let originalFilename: String
+    /// Whether this movie is flagged to sync down to a magicboxie-device Pi
+    /// - see magicbox-web's SetDeviceSync/RegisterDevice and DeviceStatusView.
+    let syncEnabled: Bool
     /// Presence (not content) is all that matters - real Jellyfin uses the
     /// tag's value for cache-busting, which this app doesn't need since
     /// AsyncImage keys on the URL and a poster/backdrop change gets a new
@@ -28,6 +31,7 @@ struct RemoteMovie: Decodable, Identifiable, Hashable {
         case runTimeTicks = "RunTimeTicks"
         case status = "MagicBoxieStatus"
         case originalFilename = "MagicBoxieOriginalFilename"
+        case syncEnabled = "MagicBoxieSyncEnabled"
         case imageTags = "ImageTags"
         case backdropImageTags = "BackdropImageTags"
     }

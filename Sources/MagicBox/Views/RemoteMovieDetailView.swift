@@ -128,7 +128,8 @@ struct RemoteMovieDetailView: View {
     let json = """
     {"Id":"movie-1","Name":"Star Wars","Overview":"A long time ago...",
      "ProductionYear":1977,"RunTimeTicks":76200000000,
-     "MagicBoxieStatus":"ready","MagicBoxieOriginalFilename":"starwars.mp4"}
+     "MagicBoxieStatus":"ready","MagicBoxieOriginalFilename":"starwars.mp4",
+     "MagicBoxieSyncEnabled":true}
     """.data(using: .utf8)!
     let movie = try! JSONDecoder().decode(RemoteMovie.self, from: json)
 

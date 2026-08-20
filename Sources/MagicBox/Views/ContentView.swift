@@ -30,6 +30,13 @@ struct ContentView: View {
                 .tabItem {
                     Label("Media Library", systemImage: "icloud")
                 }
+
+                NavigationStack {
+                    DeviceStatusView()
+                }
+                .tabItem {
+                    Label("Device", systemImage: "tv")
+                }
             }
         } else {
             moviesTab
