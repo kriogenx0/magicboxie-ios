@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// Prefers the device's own thumbnail (generated from the movie file itself);
-/// falls back to a TMDB poster if the device doesn't have one or isn't
-/// reachable over HTTP (e.g. plain BLE-only mode with no HTTP transport up).
+/// falls back to a MagicBox-web poster if the device doesn't have one or
+/// isn't reachable over HTTP (e.g. plain BLE-only mode with no HTTP
+/// transport up).
 struct ThumbnailImage: View {
     let primaryURL: URL?
     let fallbackURL: URL?

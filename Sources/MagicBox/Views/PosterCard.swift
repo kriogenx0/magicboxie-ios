@@ -2,9 +2,10 @@ import SwiftUI
 
 /// A single poster in a Netflix-style horizontal shelf: artwork first, with
 /// the title kept small underneath rather than overlaid - the library this
-/// browses can be entirely offline (BLE-only, zero TMDB key), where artwork
-/// is often just the generic clapperboard, so the title can't live only as
-/// text baked into a promotional image the way real Netflix rows get away with.
+/// browses can be entirely offline (BLE-only, no MagicBox-web reachable),
+/// where artwork is often just the generic clapperboard, so the title can't
+/// live only as text baked into a promotional image the way real Netflix
+/// rows get away with.
 struct PosterCard: View {
     let title: String
     let primaryURL: URL?

@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var bleManager: BLEManager
     @EnvironmentObject private var artworkStore: MovieArtworkStore
+    @EnvironmentObject private var webClient: MagicBoxWebClient
     // Owned here (above the List) so pushing/popping MovieDetailView via
     // navigationDestination never rebuilds MovieLibraryView's List, which is
     // what would happen with a .sheet - this way scroll position survives.
@@ -11,6 +12,31 @@ struct ContentView: View {
     @State private var path: [Movie] = []
 
     var body: some View {
+        // TabView always draws its bar, even with a single tab - so unlike
+        // the Media Library tab's live appear/disappear as
+        // webClient.isAuthenticated changes, plain Movies-only stays exactly
+        // as chrome-free as it was before this ever had a second
+        // destination to switch to.
+        if webClient.isAuthenticated {
+            TabView {
+                moviesTab
+                    .tabItem {
+                        Label("Movies", systemImage: "play.rectangle.on.rectangle")
+                    }
+
+                NavigationStack {
+                    RemoteLibraryView()
+                }
+                .tabItem {
+                    Label("Media Library", systemImage: "icloud")
+                }
+            }
+        } else {
+            moviesTab
+        }
+    }
+
+    private var moviesTab: some View {
         NavigationStack(path: $path) {
             // Just the movie list - no top bar. A floating gear button
             // (see MovieLibraryView) presents Settings as a sheet instead
@@ -20,9 +46,8 @@ struct ContentView: View {
                 // .toolbar(.hidden, for: .navigationBar) rather than the
                 // older .navigationBarHidden(true): the latter has a known
                 // SwiftUI/UIKit quirk of also hiding sibling chrome (e.g. an
-                // enclosing TabView's tab bar, were one ever reintroduced)
-                // since both were once tied to the same
-                // UINavigationController chrome-hiding mechanism.
+                // enclosing TabView's tab bar) since both were once tied to
+                // the same UINavigationController chrome-hiding mechanism.
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: Movie.self) { movie in
                     MovieDetailView(movie: movie, artwork: artworkStore.artwork(for: movie.title))
@@ -82,4 +107,5 @@ private struct ShareImportBanner: View {
     ContentView()
         .environmentObject(BLEManager())
         .environmentObject(MovieArtworkStore())
+        .environmentObject(MagicBoxWebClient())
 }

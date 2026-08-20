@@ -37,7 +37,7 @@ struct DeviceConnectionView: View {
         .padding(.top)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.appBackground.ignoresSafeArea())
-        .navigationTitle("Connect to Device")
+        .navigationTitle("Device Bluetooth")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if bleManager.connectionState == .connected {

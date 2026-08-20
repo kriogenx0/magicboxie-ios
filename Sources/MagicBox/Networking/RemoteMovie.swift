@@ -13,6 +13,12 @@ struct RemoteMovie: Decodable, Identifiable, Hashable {
     let runTimeTicks: Int64?
     let status: String
     let originalFilename: String
+    /// Presence (not content) is all that matters - real Jellyfin uses the
+    /// tag's value for cache-busting, which this app doesn't need since
+    /// AsyncImage keys on the URL and a poster/backdrop change gets a new
+    /// magicbox-web UpdatedAt-derived tag anyway (see items_controller.go).
+    private let imageTags: [String: String]?
+    private let backdropImageTags: [String]?
 
     enum CodingKeys: String, CodingKey {
         case id = "Id"
@@ -20,8 +26,10 @@ struct RemoteMovie: Decodable, Identifiable, Hashable {
         case overview = "Overview"
         case productionYear = "ProductionYear"
         case runTimeTicks = "RunTimeTicks"
-        case status = "MagicBoxStatus"
-        case originalFilename = "MagicBoxOriginalFilename"
+        case status = "MagicBoxieStatus"
+        case originalFilename = "MagicBoxieOriginalFilename"
+        case imageTags = "ImageTags"
+        case backdropImageTags = "BackdropImageTags"
     }
 
     var isReady: Bool { status == "ready" }
@@ -29,6 +37,21 @@ struct RemoteMovie: Decodable, Identifiable, Hashable {
     var durationMinutes: Int {
         guard let ticks = runTimeTicks else { return 0 }
         return Int(ticks / 10_000_000 / 60)
+    }
+
+    /// nil when magicbox-web has no poster for this movie yet, rather than a
+    /// URL that would just 404 - callers already fall back gracefully
+    /// (see ThumbnailImage), but there's no reason to make them find that
+    /// out over the network.
+    var posterURL: URL? {
+        guard imageTags?["Primary"] != nil else { return nil }
+        return AppConfig.magicBoxWebBaseURL.appendingPathComponent("Items/\(id)/Images/Primary")
+    }
+
+    /// Wide promotional art used for the hero banner and detail-view header.
+    var backdropURL: URL? {
+        guard let backdropImageTags, !backdropImageTags.isEmpty else { return nil }
+        return AppConfig.magicBoxWebBaseURL.appendingPathComponent("Items/\(id)/Images/Backdrop/0")
     }
 }
 

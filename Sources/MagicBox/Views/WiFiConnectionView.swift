@@ -45,7 +45,7 @@ struct WiFiConnectionView: View {
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.appBackground.ignoresSafeArea())
-        .navigationTitle("Connect via WiFi")
+        .navigationTitle("Device WiFi")
         .navigationBarTitleDisplayMode(.inline)
     }
 

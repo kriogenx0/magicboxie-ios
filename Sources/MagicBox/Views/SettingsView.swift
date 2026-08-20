@@ -19,17 +19,17 @@ struct SettingsView: View {
                 NavigationLink {
                     DeviceConnectionView()
                 } label: {
-                    row(title: "Connect to Device", systemImage: "antenna.radiowaves.left.and.right", detail: deviceStatusText)
+                    row(title: "Device Bluetooth", systemImage: "antenna.radiowaves.left.and.right", detail: deviceStatusText)
                 }
                 NavigationLink {
                     WiFiConnectionView()
                 } label: {
-                    row(title: "Connect via WiFi", systemImage: "wifi", detail: bleManager.wifiBaseURL != nil ? "Discovered" : "Not Found")
+                    row(title: "Device WiFi", systemImage: "wifi", detail: bleManager.wifiBaseURL != nil ? "Discovered" : "Not Found")
                 }
                 NavigationLink {
                     RemoteLibraryView()
                 } label: {
-                    row(title: "Connect to API", systemImage: "icloud", detail: nil)
+                    row(title: "Media Library", systemImage: "icloud", detail: nil)
                 }
             }
             .listRowBackground(Color.appElevatedSurface)
@@ -58,4 +58,5 @@ struct SettingsView: View {
         SettingsView()
     }
     .environmentObject(BLEManager())
+    .environmentObject(MagicBoxWebClient())
 }

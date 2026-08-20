@@ -64,7 +64,7 @@ final class DeviceHTTPClient {
         _ = try await session.data(for: request)
     }
 
-    /// Pushes a phone-fetched "official" poster (e.g. from TMDB) back to the
+    /// Pushes a phone-fetched "official" poster (from MagicBox-web) back to the
     /// device so it can serve it to other devices that connect later, even
     /// with no internet access of their own.
     func uploadThumbnail(movieID: Int, imageData: Data) async throws {

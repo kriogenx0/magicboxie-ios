@@ -6,7 +6,8 @@ import SwiftUI
 /// the Share Extension already uses.
 struct RemoteLibraryView: View {
     @EnvironmentObject private var bleManager: BLEManager
-    @StateObject private var webClient = MagicBoxWebClient()
+    @EnvironmentObject private var webClient: MagicBoxWebClient
+    @AppStorage(AppConfig.magicBoxWebURLDefaultsKey) private var serverURLOverride = ""
 
     @State private var password = ""
     @State private var isLoggingIn = false
@@ -54,11 +55,17 @@ struct RemoteLibraryView: View {
             }
 
             Section {
+                TextField(AppConfig.magicBoxWebBaseURL.absoluteString, text: $serverURLOverride)
+                    .textContentType(.URL)
+                    .keyboardType(.URL)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
                 SecureField("MagicBox-web password", text: $password)
                     .textContentType(.password)
                 Button {
                     Task {
                         isLoggingIn = true
+                        webClient.updateBaseURL(AppConfig.magicBoxWebBaseURL)
                         await webClient.login(password: password)
                         isLoggingIn = false
                         if webClient.isAuthenticated {
@@ -75,6 +82,8 @@ struct RemoteLibraryView: View {
                 }
                 .tint(.appAccent)
                 .disabled(password.isEmpty || isLoggingIn)
+            } header: {
+                Text("Server")
             } footer: {
                 if let error = webClient.lastError {
                     Text(error).foregroundStyle(.red)
@@ -140,7 +149,11 @@ struct RemoteLibraryView: View {
         let onDownload: () -> Void
 
         var body: some View {
-            HStack {
+            HStack(spacing: 12) {
+                ThumbnailImage(primaryURL: movie.posterURL, fallbackURL: nil)
+                    .frame(width: 40, height: 60)
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+
                 VStack(alignment: .leading) {
                     Text(movie.name)
                     HStack(spacing: 4) {
@@ -194,5 +207,6 @@ struct RemoteLibraryView: View {
     NavigationStack {
         RemoteLibraryView()
             .environmentObject(BLEManager())
+            .environmentObject(MagicBoxWebClient())
     }
 }

@@ -1,9 +1,10 @@
 import Foundation
 
 /// Groups the flat device library into Apple TV-style sections. Classified by
-/// duration rather than TMDB genre data on purpose: duration comes straight
-/// from the device's own ffprobe scan and works with zero internet access,
-/// which matters a lot for a car deployment that may never have connectivity.
+/// duration rather than MagicBox-web's genre data on purpose: duration comes
+/// straight from the device's own ffprobe scan and works with zero internet
+/// access, which matters a lot for a car deployment that may never have
+/// connectivity to the home server.
 enum MovieCategory: String, CaseIterable {
     case featureFilms = "Feature Films"
     case tvShows = "TV Shows"

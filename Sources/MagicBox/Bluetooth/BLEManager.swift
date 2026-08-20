@@ -250,11 +250,12 @@ final class BLEManager: NSObject, ObservableObject {
 
     private var uploadedThumbnailMovieIDs: Set<Int> = []
 
-    /// Pushes a phone-fetched TMDB poster back to the device so it's cached
-    /// there for other devices (or this one, later, with no internet at all).
-    /// Only possible when there's an HTTP route to the device at all - BLE's
-    /// tiny ATT payloads can't carry an image, so this silently no-ops there.
-    func pushThumbnailToDeviceIfNeeded(movie: Movie, artwork: TMDBMovie) async {
+    /// Pushes a phone-fetched MagicBox-web poster back to the device so it's
+    /// cached there for other devices (or this one, later, with no internet
+    /// at all). Only possible when there's an HTTP route to the device at
+    /// all - BLE's tiny ATT payloads can't carry an image, so this silently
+    /// no-ops there.
+    func pushThumbnailToDeviceIfNeeded(movie: Movie, artwork: RemoteMovie) async {
         guard let client = deviceClient, !uploadedThumbnailMovieIDs.contains(movie.id) else { return }
         guard let posterURL = artwork.posterURL else { return }
         uploadedThumbnailMovieIDs.insert(movie.id)

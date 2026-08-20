@@ -4,7 +4,7 @@ struct MovieDetailView: View {
     @EnvironmentObject private var bleManager: BLEManager
     @Environment(\.dismiss) private var dismiss
     let movie: Movie
-    let artwork: TMDBMovie?
+    let artwork: RemoteMovie?
 
     private let headerHeight: CGFloat = 380
 

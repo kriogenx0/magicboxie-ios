@@ -18,7 +18,7 @@ final class MagicBoxWebClient: ObservableObject {
     @Published private(set) var movies: [RemoteMovie] = []
     @Published var lastError: String?
 
-    private let baseURL: URL
+    private var baseURL: URL
     private let session: URLSession
     private static let tokenKey = "magicbox_web_token"
 
@@ -38,6 +38,15 @@ final class MagicBoxWebClient: ObservableObject {
         let storedToken = KeychainStore.get(Self.tokenKey)
         self.token = storedToken
         self.isAuthenticated = storedToken != nil
+    }
+
+    /// Lets RemoteLibraryView point this client at a user-edited server URL
+    /// (see AppConfig.magicBoxWebBaseURL) without tearing down and
+    /// recreating the @StateObject that owns it - called right before
+    /// `login`, whenever the field may have changed since this instance
+    /// was created.
+    func updateBaseURL(_ url: URL) {
+        baseURL = url
     }
 
     func login(password: String) async {
