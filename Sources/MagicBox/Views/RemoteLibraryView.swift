@@ -14,10 +14,18 @@ struct RemoteLibraryView: View {
     @State private var isRefreshing = false
     @State private var rowStatus: [String: RowStatus] = [:]
 
-    private enum RowStatus: Equatable {
+    // Not private: RemoteMovieDetailView (a separate file, reached by
+    // tapping a row) needs this same type to show a matching action state.
+    enum RowStatus: Equatable {
         case downloading
         case sending
         case done
+        /// Downloaded to the phone but the device isn't reachable yet -
+        /// BLEManager.flushPendingUploads sends it on automatically the
+        /// next time the device shows up, with no further action needed
+        /// here (though this @State-backed status itself won't reflect
+        /// that later success unless this view still happens to be open).
+        case queued
         case failed
     }
 
@@ -134,9 +142,14 @@ struct RemoteLibraryView: View {
         do {
             let fileURL = try await webClient.downloadMovie(movie)
             rowStatus[movie.id] = .sending
-            await bleManager.uploadMovieIfNeeded(fileURL: fileURL)
-            rowStatus[movie.id] = .done
-            try? FileManager.default.removeItem(at: fileURL)
+            // Always stages through BLEManager's pending-uploads directory
+            // rather than uploading directly: if the device isn't reachable
+            // right now, the movie stays there (safe from the OS purging a
+            // temp file mid-wait) and BLEManager sends it on automatically
+            // the next time the device is - no separate "is it reachable"
+            // check needed here, and no race between checking and acting.
+            await bleManager.queueForDeviceUpload(fileURL: fileURL)
+            rowStatus[movie.id] = bleManager.movies.contains { $0.title == movie.name } ? .done : .queued
         } catch {
             rowStatus[movie.id] = .failed
         }
@@ -150,22 +163,41 @@ struct RemoteLibraryView: View {
 
         var body: some View {
             HStack(spacing: 12) {
-                ThumbnailImage(primaryURL: movie.posterURL, fallbackURL: nil)
-                    .frame(width: 40, height: 60)
-                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                // Only the thumbnail/title portion navigates - trailingControl
+                // stays a sibling outside the NavigationLink (its own
+                // .buttonStyle(.borderless) below is what keeps its tap from
+                // also triggering the navigation) so the download button
+                // keeps working independently of tapping through to Detail.
+                NavigationLink {
+                    RemoteMovieDetailView(
+                        movie: movie,
+                        status: status,
+                        alreadyOnDevice: alreadyOnDevice,
+                        onDownload: onDownload
+                    )
+                } label: {
+                    HStack(spacing: 12) {
+                        ThumbnailImage(primaryURL: movie.posterURL, fallbackURL: nil)
+                            .frame(width: 40, height: 60)
+                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
 
-                VStack(alignment: .leading) {
-                    Text(movie.name)
-                    HStack(spacing: 4) {
-                        if let year = movie.productionYear {
-                            Text(String(year))
-                        }
-                        if movie.durationMinutes > 0 {
-                            Text("\u{00B7} \(movie.durationMinutes) min")
+                        VStack(alignment: .leading) {
+                            Text(movie.name)
+                            HStack(spacing: 4) {
+                                if let year = movie.productionYear {
+                                    Text(String(year))
+                                }
+                                if movie.durationMinutes > 0 {
+                                    Text("\u{00B7} \(movie.durationMinutes) min")
+                                }
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                         }
                     }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    // Otherwise a NavigationLink's label tints with the
+                    // accent color - this keeps the row's plain-text look.
+                    .foregroundStyle(.primary)
                 }
                 Spacer()
                 trailingControl
@@ -182,6 +214,16 @@ struct RemoteLibraryView: View {
                     .labelStyle(.iconOnly)
             case .done:
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            case .queued:
+                // Re-checked live (rather than trusting the stale .queued
+                // status forever) since BLEManager.flushPendingUploads can
+                // finish this in the background, with nothing to tell this
+                // view's own rowStatus about it directly.
+                if alreadyOnDevice {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                } else {
+                    Image(systemName: "clock.badge.checkmark").foregroundStyle(.secondary)
+                }
             case .failed:
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
             case nil:

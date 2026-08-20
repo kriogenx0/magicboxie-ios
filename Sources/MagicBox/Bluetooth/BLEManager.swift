@@ -126,6 +126,7 @@ final class BLEManager: NSObject, ObservableObject {
         // library - upgrade to the uncapped HTTP source now that it's
         // available, rather than leaving that stuck until a manual refresh.
         refreshLibrary()
+        Task { await flushPendingUploads() }
     }
 
     /// Safety net against a missed BLE notification: forces a fresh status
@@ -217,17 +218,21 @@ final class BLEManager: NSObject, ObservableObject {
 
     /// Uploads a video shared in from another app (Photos/Dropbox/Files),
     /// unless a movie with the same title is already on the device. Requires
-    /// an HTTP route - BLE alone can't carry a whole video file.
-    func uploadMovieIfNeeded(fileURL: URL) async {
+    /// an HTTP route - BLE alone can't carry a whole video file. Returns
+    /// whether the upload actually happened, so callers that manage their
+    /// own local copy (see RemoteLibraryView/queueForDeviceUpload) know
+    /// whether it's now safe to delete it.
+    @discardableResult
+    func uploadMovieIfNeeded(fileURL: URL) async -> Bool {
         let title = fileURL.deletingPathExtension().lastPathComponent
 
         guard movies.first(where: { $0.title == title }) == nil else {
             shareImportStatus = .succeeded(title: title)
-            return
+            return true
         }
         guard let client = deviceClient else {
             shareImportStatus = .failed(title: title)
-            return
+            return false
         }
 
         shareImportStatus = .importing(title: title)
@@ -237,13 +242,58 @@ final class BLEManager: NSObject, ObservableObject {
                 Movie(id: uploaded.id, title: uploaded.title, durationSeconds: uploaded.durationSeconds, needsTranscoding: uploaded.needsTranscoding)
             )
             shareImportStatus = .succeeded(title: title)
+            return true
         } catch {
             shareImportStatus = .failed(title: title)
+            return false
         }
     }
 
     func dismissShareImportStatus() {
         shareImportStatus = nil
+    }
+
+    // MARK: - Relaying MagicBox-web downloads to the device when it isn't
+    // reachable yet
+
+    /// Where a movie downloaded from MagicBox-web waits when the device
+    /// isn't reachable at download time (see RemoteLibraryView.downloadAndSend)
+    /// - Application Support, not the OS-purgeable temporary directory,
+    /// since these need to survive an unpredictable wait for the device to
+    /// show up again.
+    private static var pendingUploadsDirectory: URL {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("PendingDeviceUploads", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    /// Moves a movie MagicBox-web has already handed to the phone into the
+    /// pending-uploads directory, then immediately tries a flush in case
+    /// the device is actually reachable by the time this runs.
+    func queueForDeviceUpload(fileURL: URL) async {
+        let destination = Self.pendingUploadsDirectory.appendingPathComponent(fileURL.lastPathComponent)
+        try? FileManager.default.removeItem(at: destination)
+        try? FileManager.default.moveItem(at: fileURL, to: destination)
+        await flushPendingUploads()
+    }
+
+    /// Pushes everything waiting in the pending-uploads directory to the
+    /// device, deleting each file locally once it's confirmed to have
+    /// arrived there. Called both right after queueing (the device may
+    /// already be reachable) and from setWiFiBaseURL (the device may have
+    /// just become reachable) - so a movie queued while offline goes out
+    /// automatically the next time the device shows up, no further action
+    /// needed from whoever queued it.
+    func flushPendingUploads() async {
+        guard deviceClient != nil else { return }
+        let dir = Self.pendingUploadsDirectory
+        guard let files = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else { return }
+        for fileURL in files {
+            if await uploadMovieIfNeeded(fileURL: fileURL) {
+                try? FileManager.default.removeItem(at: fileURL)
+            }
+        }
     }
 
     // MARK: - Pushing official artwork back to the device
