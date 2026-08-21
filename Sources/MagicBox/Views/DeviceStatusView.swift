@@ -8,6 +8,7 @@ struct DeviceStatusView: View {
     @EnvironmentObject private var bleManager: BLEManager
     @EnvironmentObject private var webClient: MagicBoxWebClient
     @State private var isRefreshing = false
+    @State private var showingShutdownConfirmation = false
 
     /// Ordered last_seen_at desc by the server - the most recently-checked-in
     /// device is what this single-device-oriented product cares about, even
@@ -64,6 +65,15 @@ struct DeviceStatusView: View {
                 Text("Syncing to Device")
             }
             .listRowBackground(Color.appElevatedSurface)
+
+            if AppConfig.mode == .bluetooth {
+                Section {
+                    Button("Power Off Device", role: .destructive) {
+                        showingShutdownConfirmation = true
+                    }
+                }
+                .listRowBackground(Color.appElevatedSurface)
+            }
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
@@ -71,6 +81,14 @@ struct DeviceStatusView: View {
         .navigationTitle("Device")
         .refreshable { await refresh() }
         .task { await refresh() }
+        .alert("Power Off Device?", isPresented: $showingShutdownConfirmation) {
+            Button("Power Off", role: .destructive) {
+                bleManager.shutdownDevice()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The device will shut down completely. There's no way to turn it back on remotely - you'll need to physically power-cycle it.")
+        }
     }
 
     private func refresh() async {
