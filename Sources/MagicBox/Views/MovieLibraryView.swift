@@ -121,10 +121,13 @@ struct MovieLibraryView: View {
 private struct MovieShelf: View {
     @EnvironmentObject private var bleManager: BLEManager
     @EnvironmentObject private var artworkStore: MovieArtworkStore
+    @EnvironmentObject private var webClient: MagicBoxWebClient
 
     let title: String
     let movies: [Movie]
     let onSelect: (Movie) -> Void
+
+    @State private var pendingDelete: Movie?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -148,6 +151,13 @@ private struct MovieShelf: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                pendingDelete = movie
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
                         .task {
                             guard let artwork = await artworkStore.fetchIfNeeded(for: movie.title) else { return }
                             await bleManager.pushThumbnailToDeviceIfNeeded(movie: movie, artwork: artwork)
@@ -156,6 +166,32 @@ private struct MovieShelf: View {
                 }
                 .padding(.horizontal, 16)
             }
+        }
+        .alert(
+            "Delete \u{201C}\(pendingDelete?.title ?? "")\u{201D}?",
+            isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } })
+        ) {
+            Button("Delete", role: .destructive) {
+                guard let movie = pendingDelete else { return }
+                Task { await delete(movie) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes the movie from the device. It won\u{2019}t be downloaded again automatically.")
+        }
+    }
+
+    /// Deletes from the device first, then - only once that's actually
+    /// confirmed to have happened - tells MagicBox-web this movie is no
+    /// longer wanted here, so home-sync doesn't just pull it straight back
+    /// down on the next check-in. Matched by title since Movie (the
+    /// device's own id space) and RemoteMovie (MagicBox-web's) don't share
+    /// an id scheme - same matching already used elsewhere (e.g.
+    /// RemoteLibraryView's alreadyOnDevice check).
+    private func delete(_ movie: Movie) async {
+        guard await bleManager.deleteMovie(movie) else { return }
+        if let remoteMatch = webClient.movies.first(where: { $0.name == movie.title }) {
+            await webClient.setSyncEnabled(itemID: remoteMatch.id, enabled: false)
         }
     }
 
@@ -170,4 +206,5 @@ private struct MovieShelf: View {
     MovieLibraryView(path: .constant([]))
         .environmentObject(BLEManager())
         .environmentObject(MovieArtworkStore())
+        .environmentObject(MagicBoxWebClient())
 }

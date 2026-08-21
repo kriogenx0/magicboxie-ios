@@ -64,6 +64,18 @@ final class DeviceHTTPClient {
         _ = try await session.data(for: request)
     }
 
+    /// Permanently removes a movie from the device (source file, any
+    /// transcoded copy, thumbnail, metadata) - see the device's
+    /// DELETE /api/movies/{id}.
+    func deleteMovie(id: Int) async throws {
+        var request = URLRequest(url: baseURL.appendingPathComponent("api/movies/\(id)"))
+        request.httpMethod = "DELETE"
+        let (_, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+    }
+
     /// Pushes a phone-fetched "official" poster (from MagicBox-web) back to the
     /// device so it can serve it to other devices that connect later, even
     /// with no internet access of their own.

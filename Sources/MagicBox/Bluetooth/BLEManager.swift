@@ -253,6 +253,26 @@ final class BLEManager: NSObject, ObservableObject {
         shareImportStatus = nil
     }
 
+    // MARK: - Removing a movie from the device
+
+    /// Permanently deletes a movie from the device and drops it from
+    /// `movies` on success. HTTP-only (needs deviceClient) like every other
+    /// bulk/management operation - BLE's tiny ATT payloads are for control,
+    /// not this. Returns whether it actually happened, so the caller (see
+    /// MovieLibraryView) knows whether it's safe to also tell MagicBox-web
+    /// this movie is no longer wanted on the device.
+    @discardableResult
+    func deleteMovie(_ movie: Movie) async -> Bool {
+        guard let client = deviceClient else { return false }
+        do {
+            try await client.deleteMovie(id: movie.id)
+        } catch {
+            return false
+        }
+        movies.removeAll { $0.id == movie.id }
+        return true
+    }
+
     // MARK: - Relaying MagicBox-web downloads to the device when it isn't
     // reachable yet
 

@@ -107,6 +107,38 @@ final class MagicBoxWebClient: ObservableObject {
         }
     }
 
+    /// Flags (or unflags) a movie as wanted on a magicboxie-device Pi - see
+    /// SetDeviceSync on the server. Used when a movie is deleted from the
+    /// device (see BLEManager.deleteMovie/MovieLibraryView), so home-sync
+    /// doesn't just download it straight back on the next check-in.
+    /// Returns whether it actually happened; @discardableResult since some
+    /// callers (e.g. best-effort cleanup after a device-side delete) don't
+    /// need to react to failure specially - RemoteLibraryView.syncEnabled
+    /// itself stays authoritative on `movies` either way after the next fetch.
+    @discardableResult
+    func setSyncEnabled(itemID: String, enabled: Bool) async -> Bool {
+        guard let token else { return false }
+
+        var request = URLRequest(url: baseURL.appendingPathComponent("api/items/\(itemID)/sync"))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: ["enabled": enabled])
+
+        do {
+            let (_, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+                return false
+            }
+            if let index = movies.firstIndex(where: { $0.id == itemID }) {
+                movies[index].syncEnabled = enabled
+            }
+            return true
+        } catch {
+            return false
+        }
+    }
+
     /// Every magicboxie-device Pi that has ever checked in, and when it last
     /// did - see DeviceStatusView, and ListDevices on the server.
     func fetchDevices() async {
