@@ -1,46 +1,41 @@
-name: MagicBox
+name: MagicBoxie
 options:
-  bundleIdPrefix: com.magicbox
+  bundleIdPrefix: com.magicboxie
   deploymentTarget:
     iOS: "16.0"
 targets:
-  MagicBox:
+  MagicBoxie:
     type: application
     platform: iOS
     sources:
-      - path: Sources/MagicBox
+      - path: Sources/MagicBoxie
       - path: Sources/Shared
-    configFiles:
-      Debug: Config/Secrets.xcconfig
-      Release: Config/Secrets.xcconfig
     dependencies:
-      - target: MagicBoxShareExtension
+      - target: MagicBoxieShareExtension
         embed: true
     info:
-      path: Sources/MagicBox/Info.plist
+      path: Sources/MagicBoxie/Info.plist
       properties:
-        UILaunchScreen:
-          UIColorName: LaunchBackground
-          UIImageName: MBMark
-        NSBluetoothAlwaysUsageDescription: "MagicBox uses Bluetooth to find and control your MagicBox player."
+        CFBundleVersion: "6"
+        UILaunchStoryboardName: LaunchScreen
+        NSBluetoothAlwaysUsageDescription: "MagicBoxie uses Bluetooth to find and control your MagicBoxie player."
         NSBonjourServices:
           - _magicboxie._tcp
-        NSLocalNetworkUsageDescription: "MagicBox uses your local network to find your MagicBox player over WiFi."
+        NSLocalNetworkUsageDescription: "MagicBoxie uses your local network to find your MagicBoxie player over WiFi."
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        TMDB_API_KEY: $(TMDB_API_KEY)
         # So the Share Extension can hand a shared video off to the main app
         # (extensions can't do the upload themselves - see ShareViewController).
         CFBundleURLTypes:
           - CFBundleURLSchemes:
-              - magicbox
+              - magicboxie
     entitlements:
-      path: Sources/MagicBox/MagicBox.entitlements
+      path: Sources/MagicBoxie/MagicBoxie.entitlements
       properties:
         com.apple.security.application-groups:
-          - group.com.magicbox.app
+          - group.com.magicboxie.app
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.alexv.magicboxie.app
@@ -54,16 +49,17 @@ targets:
         DEVELOPMENT_TEAM: K2F4FTM2XQ
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
-  MagicBoxShareExtension:
+  MagicBoxieShareExtension:
     type: app-extension
     platform: iOS
     sources:
-      - path: Sources/MagicBoxShareExtension
+      - path: Sources/MagicBoxieShareExtension
       - path: Sources/Shared
     info:
-      path: Sources/MagicBoxShareExtension/Info.plist
+      path: Sources/MagicBoxieShareExtension/Info.plist
       properties:
-        CFBundleDisplayName: MagicBox
+        CFBundleDisplayName: MagicBoxie
+        CFBundleVersion: "6"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
@@ -71,10 +67,10 @@ targets:
             NSExtensionActivationRule:
               NSExtensionActivationSupportsMovieWithMaxCount: 1
     entitlements:
-      path: Sources/MagicBoxShareExtension/ShareExtension.entitlements
+      path: Sources/MagicBoxieShareExtension/ShareExtension.entitlements
       properties:
         com.apple.security.application-groups:
-          - group.com.magicbox.app
+          - group.com.magicboxie.app
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.alexv.magicboxie.app.ShareExtension
@@ -85,18 +81,18 @@ targets:
         DEVELOPMENT_TEAM: K2F4FTM2XQ
 
 schemes:
-  MagicBox:
+  MagicBoxie:
     build:
       targets:
-        MagicBox: all
+        MagicBoxie: all
     run:
       config: Debug
       # Dev mode by default when running from Xcode: talks to the device's
       # HTTP API directly (e.g. the Docker container's web_service on this
       # Mac) instead of Bluetooth, so the UI can be built/tested without BLE
       # hardware or a Pi. Remove/flip to "0" in the scheme editor to test real
-      # BLE. MAGICBOX_DEVICE_URL defaults to localhost:8000 if unset - point
+      # BLE. MAGICBOXIE_DEVICE_URL defaults to localhost:8000 if unset - point
       # it at a real device's LAN IP instead when needed.
       environmentVariables:
-        MAGICBOX_DIRECT_API: "1"
-        MAGICBOX_DEVICE_URL: "http://localhost:8000"
+        MAGICBOXIE_DIRECT_API: "1"
+        MAGICBOXIE_DEVICE_URL: "http://localhost:8000"

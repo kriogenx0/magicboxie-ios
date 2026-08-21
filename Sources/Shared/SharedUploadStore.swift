@@ -6,8 +6,8 @@ import Foundation
 /// asks the system to open the main app, which picks the file up from here
 /// and uploads it to the device.
 enum SharedUploadStore {
-    static let appGroupID = "group.com.magicbox.app"
-    static let importURL = URL(string: "magicbox://import-shared")!
+    static let appGroupID = "group.com.magicboxie.app"
+    static let importURL = URL(string: "magicboxie://import-shared")!
 
     static var pendingUploadsDirectory: URL? {
         guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {
