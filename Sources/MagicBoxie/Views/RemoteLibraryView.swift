@@ -117,9 +117,13 @@ struct RemoteLibraryView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .overlay {
-            if webClient.movies.isEmpty && !isRefreshing {
-                Text("No movies on MagicBoxie-web yet")
-                    .foregroundStyle(.secondary)
+            if webClient.movies.isEmpty {
+                if isRefreshing {
+                    ProgressView()
+                } else {
+                    Text("No movies on MagicBoxie-web yet")
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .refreshable { await refresh() }

@@ -75,7 +75,8 @@ struct MovieDetailView: View {
                 ThumbnailImage(
                     primaryURL: artwork?.backdropURL
                         ?? AppConfig.deviceHTTPBaseURL.appendingPathComponent("api/movies/\(movie.id)/thumbnail"),
-                    fallbackURL: artwork?.posterURL
+                    fallbackURL: artwork?.posterURL,
+                    maxPixelSize: 1200
                 )
                 .frame(width: geo.size.width, height: headerHeight)
                 .clipped()

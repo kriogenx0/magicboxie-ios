@@ -100,7 +100,7 @@ struct RemoteMovieDetailView: View {
     private var header: some View {
         GeometryReader { geo in
             ZStack(alignment: .bottomLeading) {
-                ThumbnailImage(primaryURL: movie.backdropURL, fallbackURL: movie.posterURL)
+                ThumbnailImage(primaryURL: movie.backdropURL, fallbackURL: movie.posterURL, maxPixelSize: 1200)
                     .frame(width: geo.size.width, height: headerHeight)
                     .clipped()
 
