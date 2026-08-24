@@ -19,10 +19,17 @@ enum MovieCategory: String, CaseIterable {
     }
 
     /// Groups and orders movies into non-empty sections, Feature Films first,
-    /// Clips & Other last.
+    /// Clips & Other last - each section alphabetical by title
+    /// (localizedStandardCompare: the same "ignore case, treat digit runs
+    /// numerically" ordering Finder uses, so "2001" sorts before "20,000
+    /// Leagues" the way a person would expect rather than by raw character
+    /// code). The device sends movies in whatever order its own directory
+    /// scan produced, which isn't guaranteed to match this.
     static func sections(for movies: [Movie]) -> [(category: MovieCategory, movies: [Movie])] {
         allCases.compactMap { category in
-            let matches = movies.filter { categorize($0) == category }
+            let matches = movies
+                .filter { categorize($0) == category }
+                .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
             return matches.isEmpty ? nil : (category, matches)
         }
     }
