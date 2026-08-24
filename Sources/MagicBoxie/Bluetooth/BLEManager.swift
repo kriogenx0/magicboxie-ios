@@ -100,6 +100,7 @@ final class BLEManager: NSObject, ObservableObject {
     private var deviceClient: DeviceHTTPClient?
     private var statusPollTask: Task<Void, Never>?
     private var blePollTask: Task<Void, Never>?
+    private var deviceInfoPollTask: Task<Void, Never>?
 
     override init() {
         super.init()
@@ -119,6 +120,7 @@ final class BLEManager: NSObject, ObservableObject {
     deinit {
         statusPollTask?.cancel()
         blePollTask?.cancel()
+        deviceInfoPollTask?.cancel()
     }
 
     /// Accepts the first WiFi URL from whichever source resolves first (mDNS
@@ -135,6 +137,22 @@ final class BLEManager: NSObject, ObservableObject {
         // available, rather than leaving that stuck until a manual refresh.
         refreshLibrary()
         Task { await flushPendingUploads() }
+        startDeviceInfoPolling()
+    }
+
+    /// Keeps syncingMovieTitle/deviceIPAddress fresh continuously (not just
+    /// while DeviceStatusView happens to be on screen), so the bottom-right
+    /// sync-in-progress indicator (see ContentView) can appear/disappear
+    /// promptly no matter which tab is showing.
+    private func startDeviceInfoPolling() {
+        deviceInfoPollTask?.cancel()
+        deviceInfoPollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { break }
+                await self.refreshDeviceInfo()
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+            }
+        }
     }
 
     /// Safety net against a missed BLE notification: forces a fresh status
