@@ -123,12 +123,18 @@ final class BLEManager: NSObject, ObservableObject {
         deviceInfoPollTask?.cancel()
     }
 
-    /// Accepts the first WiFi URL from whichever source resolves first (mDNS
-    /// or the BLE networkInfo characteristic) and sticks with it for this
-    /// BLEManager's lifetime - mirrors BLE's own "first peripheral found
-    /// wins" behavior in `didDiscover`.
+    /// Accepts a WiFi URL from whichever source resolves it (mDNS or the BLE
+    /// networkInfo characteristic), updating deviceClient whenever it
+    /// actually changes - not just the first time. The device's LAN IP is
+    /// DHCP-assigned and has been observed to change across
+    /// reboots/power-cycles, and this app's own process can easily outlive
+    /// one of those: locking onto the first-ever address forever would
+    /// leave deviceClient silently pointed at a dead endpoint (every HTTP
+    /// call - movies, thumbnails, uploads, Device tab - failing) with
+    /// nothing to notice or recover, long after BLE itself reconnects fine
+    /// (identity-based pairing, unaffected by an IP change).
     private func setWiFiBaseURL(_ url: URL) {
-        guard wifiBaseURL == nil else { return }
+        guard wifiBaseURL != url else { return }
         wifiBaseURL = url
         deviceClient = DeviceHTTPClient(baseURL: url)
         // The initial library read (right after connecting) had to use
@@ -521,13 +527,25 @@ final class BLEManager: NSObject, ObservableObject {
     func refreshLibrary() {
         if let client = deviceClient {
             Task {
-                guard let deviceMovies = try? await client.fetchMovies() else { return }
-                movies = deviceMovies.map {
-                    Movie(id: $0.id, title: $0.title, durationSeconds: $0.durationSeconds, needsTranscoding: $0.needsTranscoding)
+                if let deviceMovies = try? await client.fetchMovies() {
+                    movies = deviceMovies.map {
+                        Movie(id: $0.id, title: $0.title, durationSeconds: $0.durationSeconds, needsTranscoding: $0.needsTranscoding)
+                    }
+                } else {
+                    // The HTTP fetch failed - most likely deviceClient is
+                    // pointed at a now-stale address (see setWiFiBaseURL).
+                    // Falling back to BLE (512-byte cap and all) beats
+                    // leaving "device connected" but the library empty with
+                    // nothing to show for it.
+                    refreshLibraryViaBLE()
                 }
             }
             return
         }
+        refreshLibraryViaBLE()
+    }
+
+    private func refreshLibraryViaBLE() {
         guard mode == .bluetooth, let peripheral = devicePeripheral, let characteristic = libraryCharacteristic else { return }
         peripheral.readValue(for: characteristic)
     }
