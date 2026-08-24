@@ -70,6 +70,14 @@ final class BLEManager: NSObject, ObservableObject {
     /// known - see MediaControlProtocol.supportedAPIVersion and
     /// apiCompatibility.
     @Published private(set) var deviceAPIVersion: Int?
+    /// The movie the device is currently downloading from MagicBox-web, if
+    /// any - see HomeServerSync/PlaybackController.currently_syncing_movie_title
+    /// on the device side. HTTP-only like needs_transcoding/api/devices
+    /// (not surfaced over BLE): DeviceStatusView, the only thing that shows
+    /// this, already needs deviceClient reachable to mean anything.
+    @Published private(set) var syncingMovieTitle: String?
+    /// The device's own reported LAN IP - see GET /api/version.
+    @Published private(set) var deviceIPAddress: String?
 
     var apiCompatibility: APICompatibility {
         guard let deviceAPIVersion else { return .compatible }
@@ -347,6 +355,19 @@ final class BLEManager: NSObject, ObservableObject {
             movieID: status.movieID,
             positionSeconds: status.positionSeconds
         ))
+    }
+
+    /// Pulls syncingMovieTitle/deviceIPAddress - separate from the
+    /// play/pause/position status above (which BLE mode gets for free via
+    /// its own notify characteristic) since these two fields are HTTP-only.
+    /// Called by DeviceStatusView's own refresh cycle; a no-op whenever
+    /// deviceClient isn't set yet (BLE-only, or WiFi not resolved yet).
+    func refreshDeviceInfo() async {
+        guard let client = deviceClient else { return }
+        async let status = try? client.fetchStatus()
+        async let version = try? client.fetchVersion()
+        syncingMovieTitle = await status?.syncingMovieTitle
+        deviceIPAddress = await version?.ipAddress
     }
 
     /// Single point where the confirmed device status lands, so clearing the

@@ -20,11 +20,26 @@ struct DeviceStatus: Decodable {
     let status: String
     let movieID: Int?
     let positionSeconds: Int
+    /// The movie HomeServerSync is currently downloading from MagicBoxie-web,
+    /// if any - nil the rest of the time (device is idle, or the movie
+    /// still playing/paused, are unrelated to this).
+    let syncingMovieTitle: String?
 
     enum CodingKeys: String, CodingKey {
         case status
         case movieID = "movie_id"
         case positionSeconds = "position_seconds"
+        case syncingMovieTitle = "syncing_movie_title"
+    }
+}
+
+struct DeviceVersion: Decodable {
+    let apiVersion: Int
+    let ipAddress: String
+
+    enum CodingKeys: String, CodingKey {
+        case apiVersion = "api_version"
+        case ipAddress = "ip_address"
     }
 }
 
@@ -50,6 +65,11 @@ final class DeviceHTTPClient {
     func fetchStatus() async throws -> DeviceStatus {
         let (data, _) = try await session.data(from: baseURL.appendingPathComponent("api/status"))
         return try JSONDecoder().decode(DeviceStatus.self, from: data)
+    }
+
+    func fetchVersion() async throws -> DeviceVersion {
+        let (data, _) = try await session.data(from: baseURL.appendingPathComponent("api/version"))
+        return try JSONDecoder().decode(DeviceVersion.self, from: data)
     }
 
     func sendCommand(_ opcode: DeviceOpcode, argument: Int? = nil) async throws {

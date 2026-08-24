@@ -12,34 +12,30 @@ struct ContentView: View {
     @State private var path: [Movie] = []
 
     var body: some View {
-        // TabView always draws its bar, even with a single tab - so unlike
-        // the Media Library tab's live appear/disappear as
-        // webClient.isAuthenticated changes, plain Movies-only stays exactly
-        // as chrome-free as it was before this ever had a second
-        // destination to switch to.
-        if webClient.isAuthenticated {
-            TabView {
-                moviesTab
-                    .tabItem {
-                        Label("Movies", systemImage: "play.rectangle.on.rectangle")
-                    }
-
-                NavigationStack {
-                    RemoteLibraryView()
-                }
-                .tabItem {
-                    Label("Media Library", systemImage: "icloud")
-                }
-
-                NavigationStack {
-                    DeviceStatusView()
-                }
-                .tabItem {
-                    Label("Device", systemImage: "tv")
-                }
-            }
-        } else {
+        // Always three tabs, regardless of MagicBox-web connection state -
+        // Media Library and Device show a connect prompt in place of their
+        // usual content rather than disappearing outright, so there's
+        // always somewhere to go to actually connect instead of a tab that
+        // only shows up once you're already connected.
+        TabView {
             moviesTab
+                .tabItem {
+                    Label("Movies", systemImage: "play.rectangle.on.rectangle")
+                }
+
+            NavigationStack {
+                RemoteLibraryView()
+            }
+            .tabItem {
+                Label("Media Library", systemImage: "icloud")
+            }
+
+            NavigationStack {
+                DeviceStatusView()
+            }
+            .tabItem {
+                Label("Device", systemImage: "tv")
+            }
         }
     }
 
