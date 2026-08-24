@@ -1,6 +1,7 @@
 import Combine
 import CoreBluetooth
 import Foundation
+import os
 
 enum ConnectionState: Equatable {
     case disconnected
@@ -34,6 +35,8 @@ enum APICompatibility: Equatable {
 /// "Publishing changes from background threads" runtime warning.
 @MainActor
 final class BLEManager: NSObject, ObservableObject {
+    fileprivate static let logger = Logger(subsystem: "com.alexv.magicboxie.app", category: "BLEManager")
+
     @Published private(set) var connectionState: ConnectionState = .disconnected
     @Published private(set) var movies: [Movie] = []
     @Published private(set) var playbackState: PlaybackState = .idle
@@ -692,7 +695,11 @@ extension BLEManager: CBPeripheralDelegate {
     }
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
-        guard let characteristics = service.characteristics else { return }
+        guard let characteristics = service.characteristics else {
+            Self.logger.error("Characteristic discovery returned none: \(error?.localizedDescription ?? "no error", privacy: .public)")
+            return
+        }
+        Self.logger.info("Discovered \(characteristics.count) characteristic(s): \(characteristics.map(\.uuid.uuidString).joined(separator: ", "), privacy: .public)")
         for characteristic in characteristics {
             switch characteristic.uuid {
             case MediaControlProtocol.commandCharacteristicUUID:
@@ -728,16 +735,31 @@ extension BLEManager: CBPeripheralDelegate {
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        guard error == nil, let data = characteristic.value else { return }
+        if let error {
+            Self.logger.error("Read failed for \(characteristic.uuid, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return
+        }
+        guard let data = characteristic.value else {
+            Self.logger.error("Read succeeded but returned no data for \(characteristic.uuid, privacy: .public)")
+            return
+        }
         switch characteristic.uuid {
         case MediaControlProtocol.statusCharacteristicUUID:
             if let state = MediaControlProtocol.decodeStatus(data) {
                 updatePlaybackState(state)
             }
         case MediaControlProtocol.libraryCharacteristicUUID:
-            movies = MediaControlProtocol.decodeLibrary(data)
+            let decoded = MediaControlProtocol.decodeLibrary(data)
+            Self.logger.info("Library read: \(data.count) bytes -> \(decoded.count) movie(s)")
+            movies = decoded
         case MediaControlProtocol.networkInfoCharacteristicUUID:
-            if let url = MediaControlProtocol.decodeNetworkURL(data) { setWiFiBaseURL(url) }
+            if let url = MediaControlProtocol.decodeNetworkURL(data) {
+                Self.logger.info("networkInfo resolved: \(url.absoluteString, privacy: .public)")
+                setWiFiBaseURL(url)
+            } else {
+                let raw = String(data: data, encoding: .utf8) ?? "<\(data.count) non-UTF8 bytes>"
+                Self.logger.error("networkInfo decode failed, raw value: \(raw, privacy: .public)")
+            }
         case MediaControlProtocol.transcodeStatusCharacteristicUUID:
             transcodingMovieID = MediaControlProtocol.decodeTranscodeStatus(data)
         case MediaControlProtocol.apiVersionCharacteristicUUID:

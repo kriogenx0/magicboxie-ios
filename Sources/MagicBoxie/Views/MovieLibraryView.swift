@@ -32,8 +32,20 @@ struct MovieLibraryView: View {
                 if bleManager.connectionState != .connected {
                     ConnectionStatusView()
                 } else if bleManager.movies.isEmpty {
-                    Text("No movies found on the device")
-                        .foregroundStyle(.secondary)
+                    // BLE alone can list movies (see refreshLibraryViaBLE),
+                    // but WiFi/HTTP is the primary, uncapped source - an
+                    // empty list while wifiBaseURL is still nil is far more
+                    // likely to mean the device's WiFi address was never
+                    // resolved (see BLEManager.setWiFiBaseURL) than a
+                    // genuinely empty library, so say so specifically
+                    // instead of leaving that to guesswork.
+                    if bleManager.wifiBaseURL == nil {
+                        Text("Device WiFi is not connected")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("No movies found on the device")
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .overlay(alignment: .topTrailing) {
