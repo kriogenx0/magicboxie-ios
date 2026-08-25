@@ -81,6 +81,17 @@ final class BLEManager: NSObject, ObservableObject {
     @Published private(set) var syncingMovieTitle: String?
     /// The device's own reported LAN IP - see GET /api/version.
     @Published private(set) var deviceIPAddress: String?
+    /// Set once an automatic recovery attempt (see handleReadFailure)
+    /// hasn't resolved repeated BLE characteristic-read failures - the one
+    /// thing this app genuinely can't fix itself, since the cause is
+    /// iOS's own system-level per-peripheral GATT cache going stale
+    /// (typically after the device's BLE service has been redeployed/
+    /// restarted, reassigning attribute handles - see forgetDevice's doc
+    /// comment), which only Settings > Bluetooth > Forget This Device can
+    /// actually clear. Surfaced so the UI can tell the user the real fix
+    /// instead of just showing an empty movie list with no explanation.
+    /// Cleared the moment a read succeeds again.
+    @Published private(set) var needsBluetoothReset = false
 
     var apiCompatibility: APICompatibility {
         guard let deviceAPIVersion else { return .compatible }
@@ -104,6 +115,21 @@ final class BLEManager: NSObject, ObservableObject {
     private var statusPollTask: Task<Void, Never>?
     private var blePollTask: Task<Void, Never>?
     private var deviceInfoPollTask: Task<Void, Never>?
+
+    // MARK: - BLE self-recovery (see handleReadFailure)
+
+    /// How many consecutive BLE characteristic-read failures to tolerate
+    /// before attempting recovery - low enough to react promptly, high
+    /// enough that one-off timing glitches around a fresh connection
+    /// don't trigger it.
+    private static let consecutiveReadFailureThreshold = 3
+    private var consecutiveReadFailures = 0
+    /// Whether an automatic forgetDevice() has already been tried for the
+    /// current run of failures - the second time the threshold is hit
+    /// after that, it's treated as confirmation that reconnecting alone
+    /// didn't help (see needsBluetoothReset) rather than trying forever.
+    private var hasAttemptedAutoRecovery = false
+    private var isRecovering = false
 
     override init() {
         super.init()
@@ -476,6 +502,51 @@ final class BLEManager: NSObject, ObservableObject {
         sendCommand(.shutdown)
     }
 
+    // MARK: - Self-recovery from stale BLE reads
+
+    /// Called whenever a BLE characteristic read fails or comes back empty
+    /// (see didUpdateValueFor). Three consecutive failures, confirmed
+    /// against an independent HTTP check that the device is actually
+    /// alive right now, trigger one automatic forgetDevice() - a plain
+    /// disconnect+reconnect fixes ordinary BLE flakiness (a dropped
+    /// connection, RF interference) even though it can't fix a genuinely
+    /// stale GATT handle cache (see forgetDevice's own doc comment). If
+    /// failures keep happening after that one attempt, trying again would
+    /// just spin uselessly against something only a manual OS-level
+    /// Bluetooth reset can clear - needsBluetoothReset is set instead so
+    /// the UI can tell the user that directly.
+    ///
+    /// Gated on deviceClient succeeding a fresh HTTP call specifically so
+    /// this never fires just because the device is genuinely offline (or
+    /// still in the middle of connecting) - forgetDevice() would be pure
+    /// noise in that case, and HTTP is a transport this exact failure
+    /// mode doesn't affect.
+    private func handleReadFailure() {
+        consecutiveReadFailures += 1
+        guard consecutiveReadFailures >= Self.consecutiveReadFailureThreshold else { return }
+        guard !isRecovering, let client = deviceClient else { return }
+
+        isRecovering = true
+        Task { [weak self] in
+            defer { self?.isRecovering = false }
+            guard let self, (try? await client.fetchVersion()) != nil else { return }
+
+            if self.hasAttemptedAutoRecovery {
+                Self.logger.error("BLE reads still failing after an automatic recovery attempt - needs a manual Bluetooth reset")
+                self.needsBluetoothReset = true
+            } else {
+                Self.logger.info("BLE reads failing repeatedly while the device is reachable over HTTP - attempting automatic recovery")
+                // forgetDevice() itself resets hasAttemptedAutoRecovery
+                // (see its own comment) - order matters here: set it
+                // AFTER calling forgetDevice(), not before, or that reset
+                // would immediately undo it and this would retry forever
+                // instead of ever reaching needsBluetoothReset.
+                self.forgetDevice()
+                self.hasAttemptedAutoRecovery = true
+            }
+        }
+    }
+
     // MARK: - Forgetting the device
 
     /// Disconnects and clears everything the app itself has learned about
@@ -507,6 +578,14 @@ final class BLEManager: NSObject, ObservableObject {
         queue.removeAll()
         transcodingMovieID = nil
         deviceAPIVersion = nil
+        // A fresh start for read-failure tracking too, whether this call
+        // came from handleReadFailure's own automatic attempt or the user
+        // tapping the in-app "Forget Device" button manually - either way,
+        // the next failure cascade (if any) deserves its own one automatic
+        // recovery attempt before needsBluetoothReset fires again.
+        consecutiveReadFailures = 0
+        hasAttemptedAutoRecovery = false
+        needsBluetoothReset = false
         blePollTask?.cancel()
         connectionState = .disconnected
         startScanning()
@@ -737,12 +816,17 @@ extension BLEManager: CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         if let error {
             Self.logger.error("Read failed for \(characteristic.uuid, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            handleReadFailure()
             return
         }
         guard let data = characteristic.value else {
             Self.logger.error("Read succeeded but returned no data for \(characteristic.uuid, privacy: .public)")
+            handleReadFailure()
             return
         }
+        consecutiveReadFailures = 0
+        hasAttemptedAutoRecovery = false
+        needsBluetoothReset = false
         switch characteristic.uuid {
         case MediaControlProtocol.statusCharacteristicUUID:
             if let state = MediaControlProtocol.decodeStatus(data) {

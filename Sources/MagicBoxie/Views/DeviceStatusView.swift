@@ -68,6 +68,7 @@ struct DeviceStatusView: View {
                     .foregroundStyle(.green)
                 LabeledContent("Movies on Device", value: "\(bleManager.movies.count)")
                 apiCompatibilityWarning
+                bluetoothResetWarning
             } else {
                 ConnectionStatusView()
                     .frame(maxWidth: .infinity)
@@ -104,6 +105,19 @@ struct DeviceStatusView: View {
             compatibilityWarning("This device has been updated - download a new version of MagicBoxie to keep using all of its features.")
         case .deviceOutdated:
             compatibilityWarning("This device is running older software than this app expects - redeploy the latest version to it.")
+        }
+    }
+
+    /// Shown after BLEManager has already tried to self-recover once (see
+    /// its handleReadFailure) and it didn't help - the one case that
+    /// genuinely needs the user, since iOS's own system-level per-
+    /// peripheral cache is outside any app's reach to clear itself. Most
+    /// often follows the device's BLE service having been redeployed/
+    /// restarted while this phone was already connected.
+    @ViewBuilder
+    private var bluetoothResetWarning: some View {
+        if bleManager.needsBluetoothReset {
+            compatibilityWarning("Bluetooth connection needs a reset: go to Settings ▸ Bluetooth ▸ MagicBoxieDevice ▸ Forget This Device, then reconnect.")
         }
     }
 
