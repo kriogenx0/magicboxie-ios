@@ -59,6 +59,13 @@ final class BLEManager: NSObject, ObservableObject {
     /// than vanish. Only an explicit stop() (or losing the connection)
     /// clears it.
     @Published private(set) var currentMovie: Movie?
+    /// Whether the most recent currentMovie change should auto-open the
+    /// full Now Playing screen (see PlayerControlsView's onAppear/
+    /// onChange) - true for every explicit "play this" action (tapping
+    /// Play Now, skip controls, natural end-of-queue auto-advance), false
+    /// only when enqueue() happens to auto-start playback because the
+    /// queue was empty - see enqueue()'s own comment for why.
+    @Published private(set) var shouldAutoPresentNowPlaying = true
     /// Up-next queue. The currently playing/loading movie is never in here -
     /// it's whichever was most recently popped off the front.
     @Published private(set) var queue: [Movie] = []
@@ -635,11 +642,16 @@ final class BLEManager: NSObject, ObservableObject {
     // MARK: - Queue
 
     /// Adds a movie to the end of the queue. If nothing is currently playing
-    /// or about to, starts it immediately instead of leaving it stranded.
+    /// or about to, starts it immediately instead of leaving it stranded -
+    /// without auto-opening the full Now Playing screen for it (see
+    /// playNextInQueue's autoPresent), since queueing something is a
+    /// background action and the user shouldn't get yanked into the
+    /// full-screen player just because nothing else happened to be
+    /// playing yet.
     func enqueue(_ movie: Movie) {
         queue.append(movie)
         if pendingMovie == nil && playbackState.movieID == nil {
-            playNextInQueue()
+            playNextInQueue(autoPresent: false)
         }
     }
 
@@ -679,17 +691,18 @@ final class BLEManager: NSObject, ObservableObject {
         playImmediately(previous)
     }
 
-    private func playNextInQueue() {
+    private func playNextInQueue(autoPresent: Bool = true) {
         guard !queue.isEmpty else { return }
         if let current = currentMovie {
             history.append(current)
         }
-        playImmediately(queue.removeFirst())
+        playImmediately(queue.removeFirst(), autoPresent: autoPresent)
     }
 
-    private func playImmediately(_ movie: Movie) {
+    private func playImmediately(_ movie: Movie, autoPresent: Bool = true) {
         pendingMovie = movie
         currentMovie = movie
+        shouldAutoPresentNowPlaying = autoPresent
         switch mode {
         case .bluetooth:
             sendCommand(.selectMovie, argument: UInt32(movie.id))

@@ -100,11 +100,20 @@ struct PlayerControlsView: View {
         // an already-mounted view, and onChange never fires for the very
         // first value. Doesn't reopen just because the user closed it
         // themselves and the same movie kept playing - only an actual
-        // movie change (or the first one) re-triggers this.
-        .onAppear { showingNowPlaying = true }
+        // movie change (or the first one) re-triggers this. Both gated on
+        // bleManager.shouldAutoPresentNowPlaying, which enqueue() sets to
+        // false when it auto-starts playback because the queue was empty -
+        // "Add to Queue" is a background action and shouldn't yank the
+        // user into the full-screen player just because nothing else
+        // happened to be playing yet.
+        .onAppear {
+            if bleManager.shouldAutoPresentNowPlaying { showingNowPlaying = true }
+        }
         // Single-parameter form - this project targets iOS 16, and the
         // two-parameter onChange(of:initial:_:) needs 17.
-        .onChange(of: movie.id) { _ in showingNowPlaying = true }
+        .onChange(of: movie.id) { _ in
+            if bleManager.shouldAutoPresentNowPlaying { showingNowPlaying = true }
+        }
     }
 }
 
