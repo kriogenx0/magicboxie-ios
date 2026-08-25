@@ -78,10 +78,18 @@ struct PlayerControlsView: View {
         .padding(.vertical, 9)
         .background(.ultraThinMaterial)
         .background(Color.appElevatedSurface.opacity(0.92))
-        .fullScreenCover(isPresented: $showingNowPlaying) {
+        // .sheet, not .fullScreenCover: fullScreenCover has no built-in
+        // interactive dismiss at all (no swipe-down-to-close gesture,
+        // system or otherwise) - .presentationDetents([.large]) gets the
+        // same effectively-full-screen look while keeping the sheet's
+        // native drag-to-dismiss, the same way Apple Music/Podcasts' own
+        // now-playing screen works.
+        .sheet(isPresented: $showingNowPlaying) {
             NowPlayingView(movie: movie)
                 .environmentObject(bleManager)
                 .environmentObject(artworkStore)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
         // Opens automatically whenever a movie starts playing, not just on
         // tap - onAppear covers this view mounting for the very first movie

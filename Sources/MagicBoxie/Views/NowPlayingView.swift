@@ -48,7 +48,10 @@ struct NowPlayingView: View {
                 Spacer()
             }
             .padding(.horizontal, 12)
-            .padding(.top, 24)
+            // Below the sheet's own system drag indicator (see
+            // PlayerControlsView.presentationDragIndicator), not just the
+            // safe area - sitting right under that reads as crowded.
+            .padding(.top, 40)
 
             Spacer()
 
