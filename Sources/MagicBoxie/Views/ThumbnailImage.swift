@@ -102,18 +102,41 @@ private struct DefaultArtwork: View {
 final class ImageDownsampler {
     static let shared = ImageDownsampler()
 
-    private let cache = NSCache<NSString, UIImage>()
+    private let cache: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        // NSCache has no idea how large a UIImage actually is unless told via
+        // the `cost:` argument below - left at its default, it bounds entry
+        // *count*, not decoded-bitmap bytes, and a handful of full-width
+        // detail headers alone could dwarf a budget sized that way. Without
+        // this, the cache only shrinks reactively once the system is already
+        // under real memory pressure - which shows up as exactly the kind of
+        // whole-phone slowdown reported here, and only once "enough" images
+        // have loaded to trigger it.
+        cache.totalCostLimit = 64 * 1024 * 1024
+        return cache
+    }()
 
     func image(for url: URL, maxPixelSize: CGFloat) async -> UIImage? {
         let key = "\(url.absoluteString)@\(Int(maxPixelSize))" as NSString
         if let cached = cache.object(forKey: key) {
             return cached
         }
-        guard let (data, _) = try? await URLSession.shared.data(from: url),
-              let downsampled = Self.downsample(data: data, maxPixelSize: maxPixelSize) else {
+        guard let (data, _) = try? await URLSession.shared.data(from: url) else {
             return nil
         }
-        cache.setObject(downsampled, forKey: key)
+        // Explicitly off the main thread: the `await` above suspends and can
+        // resume on whatever thread Swift Concurrency picks, which is not
+        // guaranteed to be off the main actor just because this class isn't
+        // annotated @MainActor - Task.detached makes that a guarantee rather
+        // than a hope, so this CPU-bound ImageIO decode can never land on
+        // the same thread that's driving the list's scroll/tap handling.
+        guard let downsampled = await Task.detached(priority: .utility, operation: {
+            Self.downsample(data: data, maxPixelSize: maxPixelSize)
+        }).value else {
+            return nil
+        }
+        let cost = Int(downsampled.size.width * downsampled.size.height * downsampled.scale * downsampled.scale * 4)
+        cache.setObject(downsampled, forKey: key, cost: cost)
         return downsampled
     }
 
