@@ -116,6 +116,7 @@ final class BLEManager: NSObject, ObservableObject {
     private var networkInfoCharacteristic: CBCharacteristic?
     private var transcodeStatusCharacteristic: CBCharacteristic?
     private var apiVersionCharacteristic: CBCharacteristic?
+    private var wifiProvisionCharacteristic: CBCharacteristic?
 
     private let wifiDiscovery = WiFiDeviceDiscovery()
     private var deviceClient: DeviceHTTPClient?
@@ -554,6 +555,31 @@ final class BLEManager: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - WiFi provisioning
+
+    /// Sends new WiFi credentials to the device over BLE (see the
+    /// wifiProvisionCharacteristicUUID doc comment) so it can join a
+    /// network with no phone-side setup beyond this - an iPhone's Personal
+    /// Hotspot in a car, for instance, where there's no home WiFi in
+    /// range. BLE-only, like every other command in this app: the whole
+    /// point is this has to work even when the device isn't already on
+    /// WiFi. Returns whether the write was even attempted (a connected
+    /// peripheral with the characteristic discovered) - NOT whether the
+    /// device actually joined the network, which happens asynchronously on
+    /// its side (nmcli scanning/associating/DHCP can take several
+    /// seconds); watch wifiBaseURL/deviceIPAddress resolving to something
+    /// on the new network for that.
+    @discardableResult
+    func provisionWiFi(ssid: String, password: String) -> Bool {
+        guard mode == .bluetooth,
+              let peripheral = devicePeripheral,
+              let characteristic = wifiProvisionCharacteristic,
+              let data = MediaControlProtocol.encodeWifiCredentials(ssid: ssid, password: password)
+        else { return false }
+        peripheral.writeValue(data, for: characteristic, type: .withResponse)
+        return true
+    }
+
     // MARK: - Forgetting the device
 
     /// Disconnects and clears everything the app itself has learned about
@@ -578,6 +604,7 @@ final class BLEManager: NSObject, ObservableObject {
         networkInfoCharacteristic = nil
         transcodeStatusCharacteristic = nil
         apiVersionCharacteristic = nil
+        wifiProvisionCharacteristic = nil
         movies = []
         playbackState = .idle
         pendingMovie = nil
@@ -779,7 +806,8 @@ extension BLEManager: CBPeripheralDelegate {
                     MediaControlProtocol.libraryCharacteristicUUID,
                     MediaControlProtocol.networkInfoCharacteristicUUID,
                     MediaControlProtocol.transcodeStatusCharacteristicUUID,
-                    MediaControlProtocol.apiVersionCharacteristicUUID
+                    MediaControlProtocol.apiVersionCharacteristicUUID,
+                    MediaControlProtocol.wifiProvisionCharacteristicUUID
                 ],
                 for: service
             )
@@ -816,6 +844,10 @@ extension BLEManager: CBPeripheralDelegate {
                 // anyway), so a one-time read is enough.
                 apiVersionCharacteristic = characteristic
                 peripheral.readValue(for: characteristic)
+            case MediaControlProtocol.wifiProvisionCharacteristicUUID:
+                // Write-only - nothing to read here, just remember the
+                // characteristic object for provisionWiFi(ssid:password:).
+                wifiProvisionCharacteristic = characteristic
             default:
                 break
             }

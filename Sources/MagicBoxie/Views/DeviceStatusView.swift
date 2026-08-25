@@ -11,6 +11,7 @@ struct DeviceStatusView: View {
     @EnvironmentObject private var webClient: MagicBoxieWebClient
     @State private var isRefreshing = false
     @State private var showingShutdownConfirmation = false
+    @State private var showingWiFiProvisioning = false
     @State private var wifiTestState: WiFiTestState = .idle
 
     private enum WiFiTestState: Equatable {
@@ -55,6 +56,10 @@ struct DeviceStatusView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("The device will shut down completely. There's no way to turn it back on remotely - you'll need to physically power-cycle it.")
+        }
+        .sheet(isPresented: $showingWiFiProvisioning) {
+            WiFiProvisioningSheet()
+                .environmentObject(bleManager)
         }
     }
 
@@ -134,10 +139,14 @@ struct DeviceStatusView: View {
 
     // MARK: - WiFi
 
-    /// Read-only: deliberately doesn't add a WiFi control path, since BLE
-    /// always carries commands regardless of what this shows - see
+    /// Address/reachability are read-only here - BLE always carries
+    /// commands regardless of what this shows, see
     /// BLEManager.uploadMovieIfNeeded/pushThumbnailToDeviceIfNeeded for
-    /// WiFi's actual job (bulk data only).
+    /// WiFi's actual job (bulk data only). "Join a Different Network" is
+    /// the one WiFi control path this has: for switching the device onto a
+    /// network with no BLE connection needed once it's provisioned - e.g.
+    /// an iPhone's Personal Hotspot in a car, where there's no home WiFi to
+    /// fall back on.
     private var wifiSection: some View {
         Section {
             if let url = bleManager.wifiBaseURL {
@@ -153,6 +162,12 @@ struct DeviceStatusView: View {
                 Task { await testWiFiConnection() }
             }
             .disabled(bleManager.wifiBaseURL == nil || wifiTestState == .testing)
+
+            if AppConfig.mode == .bluetooth {
+                Button("Join a Different Network…") {
+                    showingWiFiProvisioning = true
+                }
+            }
         } header: {
             Text("WiFi")
         }
@@ -264,6 +279,66 @@ struct DeviceStatusView: View {
         async let deviceInfo: () = bleManager.refreshDeviceInfo()
         _ = await (devices, movies, deviceInfo)
         isRefreshing = false
+    }
+}
+
+/// Sends new WiFi credentials to the device over BLE (see
+/// BLEManager.provisionWiFi) - the one form in this app for joining the
+/// device to a network (e.g. an iPhone's Personal Hotspot in a car) with
+/// no phone-side network switching or SSH access needed.
+private struct WiFiProvisioningSheet: View {
+    @EnvironmentObject private var bleManager: BLEManager
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var ssid = ""
+    @State private var password = ""
+    @State private var didSend = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Network Name", text: $ssid)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                    SecureField("Password", text: $password)
+                        .textContentType(.password)
+                } footer: {
+                    Text("The device will try to join this network - it can take several seconds (scanning, connecting, getting an address). Check the WiFi section here again shortly to see if it worked.")
+                }
+
+                if didSend {
+                    Section {
+                        Label("Sent to the device", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    }
+                    .listRowBackground(Color.clear)
+                }
+            }
+            .navigationTitle("Join a Network")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Send") {
+                        guard bleManager.provisionWiFi(ssid: ssid, password: password) else { return }
+                        didSend = true
+                        // A brief confirmation beat before closing, rather
+                        // than dismissing instantly - the write itself is
+                        // near-instant, but the device joining the network
+                        // is not, so this at least confirms the credentials
+                        // actually reached it before this screen goes away.
+                        Task {
+                            try? await Task.sleep(nanoseconds: 1_200_000_000)
+                            dismiss()
+                        }
+                    }
+                    .disabled(ssid.trimmingCharacters(in: .whitespaces).isEmpty || didSend)
+                }
+            }
+        }
     }
 }
 

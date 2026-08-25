@@ -15,6 +15,10 @@ enum MediaControlProtocol {
     static let transcodeStatusCharacteristicUUID = CBUUID(string: "3E2C1A00-3B42-4B7E-9C3E-000000000006")
     /// Read-only: the device's wire-protocol version - see supportedAPIVersion.
     static let apiVersionCharacteristicUUID = CBUUID(string: "3E2C1A00-3B42-4B7E-9C3E-000000000007")
+    /// Write-only: joins the device to a new WiFi network (e.g. an iPhone's
+    /// Personal Hotspot in a car, with no home network in range) - see
+    /// encodeWifiCredentials and the device's wifi_provisioning.py.
+    static let wifiProvisionCharacteristicUUID = CBUUID(string: "3E2C1A00-3B42-4B7E-9C3E-000000000008")
 
     /// The wire protocol version this app build was written against - see
     /// the device's protocol.py API_VERSION for what bumps this and why.
@@ -89,5 +93,22 @@ enum MediaControlProtocol {
     static func decodeAPIVersion(_ data: Data) -> Int? {
         guard let byte = data.first else { return nil }
         return Int(byte)
+    }
+
+    /// 1 byte SSID length, followed by that many UTF-8 SSID bytes, followed
+    /// by the UTF-8 password (the rest of the payload) - length-prefixed
+    /// rather than a delimiter (e.g. the library characteristic's "|")
+    /// deliberately, since a WiFi password can contain any printable
+    /// character. Matches the device's own protocol.decode_wifi_credentials
+    /// exactly - see its own comment. nil if the SSID is empty or longer
+    /// than 255 UTF-8 bytes (the real-world WiFi SSID limit is 32 bytes,
+    /// so this is generous headroom, not a meaningful constraint).
+    static func encodeWifiCredentials(ssid: String, password: String) -> Data? {
+        let ssidBytes = Data(ssid.utf8)
+        guard !ssidBytes.isEmpty, ssidBytes.count <= 255 else { return nil }
+        var data = Data([UInt8(ssidBytes.count)])
+        data.append(ssidBytes)
+        data.append(Data(password.utf8))
+        return data
     }
 }
