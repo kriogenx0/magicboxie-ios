@@ -34,10 +34,18 @@ struct NowPlayingView: View {
                 // its thumbnail-grid menu, not just closes this iOS view)
                 // rather than merely dismissing - "back to menu" means the
                 // device's screen too, not just leaving this screen up
-                // with a movie that's still going on the TV.
+                // with a movie that's still going on the TV. dismiss()
+                // runs FIRST, before stop(): stop() clears
+                // bleManager.currentMovie, which is what conditionally
+                // mounts PlayerControlsView (the view that owns this
+                // fullScreenCover) in the first place - clearing it before
+                // dismiss() runs yanks the presenting view out from under
+                // the dismissal in the same update cycle, which could leave
+                // the cover stuck on screen with no valid presenter left to
+                // animate it away.
                 Button {
-                    bleManager.stop()
                     dismiss()
+                    bleManager.stop()
                 } label: {
                     Image(systemName: "chevron.down")
                         .font(.title3.weight(.semibold))
@@ -172,11 +180,12 @@ struct NowPlayingView: View {
     /// screen). Explicit dismiss() rather than relying on stop() clearing
     /// currentMovie to implicitly cascade-dismiss this sheet through its
     /// now-gone presenting view, since that path isn't guaranteed to be
-    /// immediate.
+    /// immediate - and dismiss() runs before stop() for the same reason
+    /// noted on the chevron button above.
     private var stopButton: some View {
         Button(role: .destructive) {
-            bleManager.stop()
             dismiss()
+            bleManager.stop()
         } label: {
             Label("Stop", systemImage: "stop.fill")
                 .font(.subheadline.weight(.semibold))
