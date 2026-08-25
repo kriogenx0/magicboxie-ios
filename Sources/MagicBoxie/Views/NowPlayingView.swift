@@ -29,6 +29,8 @@ struct NowPlayingView: View {
 
     var body: some View {
         VStack(spacing: 24) {
+            Spacer()
+
             HStack {
                 // Collapses back to the mini player ONLY - playback keeps
                 // going on the device untouched, same as backgrounding any
@@ -36,7 +38,9 @@ struct NowPlayingView: View {
                 // explicit action (see stopButton below); this button used
                 // to do both, which meant there was no way to just check
                 // something else in the app without also killing what's on
-                // the TV.
+                // the TV. Sits right above the artwork rather than pinned
+                // to the very top, below the sheet's own system drag
+                // indicator (see PlayerControlsView.presentationDragIndicator).
                 Button {
                     dismiss()
                 } label: {
@@ -48,12 +52,6 @@ struct NowPlayingView: View {
                 Spacer()
             }
             .padding(.horizontal, 12)
-            // Below the sheet's own system drag indicator (see
-            // PlayerControlsView.presentationDragIndicator), not just the
-            // safe area - sitting right under that reads as crowded.
-            .padding(.top, 40)
-
-            Spacer()
 
             ThumbnailImage(
                 primaryURL: AppConfig.deviceHTTPBaseURL.appendingPathComponent("api/movies/\(movie.id)/thumbnail"),
