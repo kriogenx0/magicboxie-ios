@@ -83,6 +83,20 @@ struct PlayerControlsView: View {
                 .environmentObject(bleManager)
                 .environmentObject(artworkStore)
         }
+        // Opens automatically whenever a movie starts playing, not just on
+        // tap - onAppear covers this view mounting for the very first movie
+        // of a session (nothing was playing before), onChange covers every
+        // later movie (skip-to-next, playing something else) while this
+        // view stays mounted throughout, since neither alone covers both:
+        // onAppear doesn't refire just because `movie` changed underneath
+        // an already-mounted view, and onChange never fires for the very
+        // first value. Doesn't reopen just because the user closed it
+        // themselves and the same movie kept playing - only an actual
+        // movie change (or the first one) re-triggers this.
+        .onAppear { showingNowPlaying = true }
+        // Single-parameter form - this project targets iOS 16, and the
+        // two-parameter onChange(of:initial:_:) needs 17.
+        .onChange(of: movie.id) { _ in showingNowPlaying = true }
     }
 }
 

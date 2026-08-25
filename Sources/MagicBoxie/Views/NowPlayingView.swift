@@ -30,22 +30,15 @@ struct NowPlayingView: View {
     var body: some View {
         VStack(spacing: 24) {
             HStack {
-                // Stops playback (which returns the device's own screen to
-                // its thumbnail-grid menu, not just closes this iOS view)
-                // rather than merely dismissing - "back to menu" means the
-                // device's screen too, not just leaving this screen up
-                // with a movie that's still going on the TV. dismiss()
-                // runs FIRST, before stop(): stop() clears
-                // bleManager.currentMovie, which is what conditionally
-                // mounts PlayerControlsView (the view that owns this
-                // fullScreenCover) in the first place - clearing it before
-                // dismiss() runs yanks the presenting view out from under
-                // the dismissal in the same update cycle, which could leave
-                // the cover stuck on screen with no valid presenter left to
-                // animate it away.
+                // Collapses back to the mini player ONLY - playback keeps
+                // going on the device untouched, same as backgrounding any
+                // other now-playing screen. Stopping is a separate,
+                // explicit action (see stopButton below); this button used
+                // to do both, which meant there was no way to just check
+                // something else in the app without also killing what's on
+                // the TV.
                 Button {
                     dismiss()
-                    bleManager.stop()
                 } label: {
                     Image(systemName: "chevron.down")
                         .font(.title3.weight(.semibold))
@@ -55,7 +48,7 @@ struct NowPlayingView: View {
                 Spacer()
             }
             .padding(.horizontal, 12)
-            .padding(.top, 8)
+            .padding(.top, 24)
 
             Spacer()
 
@@ -175,13 +168,19 @@ struct NowPlayingView: View {
         .tint(.white)
     }
 
-    /// A clearly-labeled alternative to the chevron above, for
-    /// discoverability - functionally the same (stop, then leave this
-    /// screen). Explicit dismiss() rather than relying on stop() clearing
-    /// currentMovie to implicitly cascade-dismiss this sheet through its
-    /// now-gone presenting view, since that path isn't guaranteed to be
-    /// immediate - and dismiss() runs before stop() for the same reason
-    /// noted on the chevron button above.
+    /// Unlike the chevron above (which only collapses this screen, leaving
+    /// playback running), this is the actual "stop" action: stops playback
+    /// (returning the device's own screen to its thumbnail-grid menu, not
+    /// just closing this iOS view) and leaves. Explicit dismiss() rather
+    /// than relying on stop() clearing currentMovie to implicitly cascade-
+    /// dismiss this sheet through its now-gone presenting view, since that
+    /// path isn't guaranteed to be immediate - and dismiss() runs before
+    /// stop() specifically because stop() clears bleManager.currentMovie,
+    /// which is what conditionally mounts PlayerControlsView (the view
+    /// that owns this fullScreenCover) in the first place; clearing it
+    /// before dismiss() runs yanks the presenting view out from under the
+    /// dismissal in the same update cycle, which could leave the cover
+    /// stuck on screen with no valid presenter left to animate it away.
     private var stopButton: some View {
         Button(role: .destructive) {
             dismiss()
