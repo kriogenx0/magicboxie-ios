@@ -19,14 +19,12 @@ final class WiFiDeviceDiscovery {
 
     private static let logger = Logger(subsystem: "com.alexv.magicboxie.app", category: "WiFiDeviceDiscovery")
 
-    /// How long to wait before recreating the browser after it fails - e.g.
-    /// the Local Network permission prompt hadn't been answered yet on the
-    /// very first launch after a fresh install, so that first browse attempt
-    /// dies before the user gets to it. Retrying (rather than the previous
-    /// behavior of leaving `browser` permanently non-nil after one failed
-    /// attempt, which made start() a silent no-op forever after) means
-    /// granting permission later - without a full app relaunch - can still
-    /// recover on its own.
+    /// How long to wait before recreating the browser after it enters
+    /// .failed (not .waiting - see handleStateUpdate). Retrying at all
+    /// (rather than the original behavior of leaving `browser` permanently
+    /// non-nil after one failed attempt, which made start() a silent no-op
+    /// forever after) means a transient failure doesn't require a full app
+    /// relaunch to recover from.
     private static let retryDelaySeconds: UInt64 = 5
 
     var onResolve: ((URL) -> Void)?
@@ -64,16 +62,24 @@ final class WiFiDeviceDiscovery {
         case .ready:
             Self.logger.info("mDNS browser ready")
         case .failed(let error):
+            // Per Network.framework's documented contract, .failed is the
+            // one state a browser does NOT recover from on its own - the
+            // caller is expected to create a new one, which is what retry()
+            // does.
             Self.logger.error("mDNS browser failed: \(String(describing: error), privacy: .public) - retrying in \(Self.retryDelaySeconds)s")
             retry()
         case .waiting(let error):
-            // Commonly means the Local Network permission prompt hasn't
-            // been answered yet (or was denied) - not fatal on its own
-            // (NWBrowser can transition out of .waiting on its own once
-            // permission is granted), but retrying from scratch covers the
-            // case where it doesn't and just sits here indefinitely.
-            Self.logger.error("mDNS browser waiting: \(String(describing: error), privacy: .public) - retrying in \(Self.retryDelaySeconds)s")
-            retry()
+            // Unlike .failed, .waiting means the browser expects to recover
+            // ON ITS OWN once whatever's blocking it clears (e.g. the Local
+            // Network permission prompt not answered yet) - it keeps
+            // retrying internally and will transition to .ready by itself.
+            // Tearing it down and recreating it here (as an earlier version
+            // of this code did) fought that: if a fresh browser re-enters
+            // .waiting for the same reason, which is exactly what happens
+            // while the blocking condition is still true, it gets killed
+            // again before it can ever recover - a destroy-before-recovery
+            // loop that can keep discovery permanently stuck. Log only.
+            Self.logger.info("mDNS browser waiting: \(String(describing: error), privacy: .public)")
         case .cancelled:
             break
         default:
