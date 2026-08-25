@@ -69,6 +69,19 @@ struct PlayerControlsView: View {
                     bleManager.skipToNext()
                 } label: {
                     Image(systemName: "forward.end.fill")
+                        // A count badge, not just the bare skip icon - the
+                        // queue itself is otherwise only visible after
+                        // opening the full Now Playing screen, so there was
+                        // no way to tell "something's queued" (let alone
+                        // how much) from the mini player alone.
+                        .overlay(alignment: .topTrailing) {
+                            Text("\(bleManager.queue.count)")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(3)
+                                .background(Color.appAccent, in: Circle())
+                                .offset(x: 8, y: -8)
+                        }
                 }
                 .tint(.primary)
             }
