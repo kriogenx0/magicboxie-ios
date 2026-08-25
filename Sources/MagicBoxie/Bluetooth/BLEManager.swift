@@ -88,6 +88,14 @@ final class BLEManager: NSObject, ObservableObject {
     @Published private(set) var syncingMovieTitle: String?
     /// The device's own reported LAN IP - see GET /api/version.
     @Published private(set) var deviceIPAddress: String?
+    /// The SoC's own thermal sensor reading, and vcgencmd get_throttled's
+    /// "right now" bits - see DeviceStatus's own doc comments. All three
+    /// nil (not false/0) whenever the device hasn't reported them yet, or
+    /// the underlying sensor/vcgencmd isn't available - never treat nil as
+    /// "everything's fine."
+    @Published private(set) var cpuTemperatureCelsius: Double?
+    @Published private(set) var underVoltage: Bool?
+    @Published private(set) var throttled: Bool?
     /// Set once an automatic recovery attempt (see handleReadFailure)
     /// hasn't resolved repeated BLE characteristic-read failures - the one
     /// thing this app genuinely can't fix itself, since the cause is
@@ -418,16 +426,20 @@ final class BLEManager: NSObject, ObservableObject {
         ))
     }
 
-    /// Pulls syncingMovieTitle/deviceIPAddress - separate from the
-    /// play/pause/position status above (which BLE mode gets for free via
-    /// its own notify characteristic) since these two fields are HTTP-only.
-    /// Called by DeviceStatusView's own refresh cycle; a no-op whenever
-    /// deviceClient isn't set yet (BLE-only, or WiFi not resolved yet).
+    /// Pulls syncingMovieTitle/deviceIPAddress/cpuTemperatureCelsius/
+    /// underVoltage/throttled - separate from the play/pause/position
+    /// status above (which BLE mode gets for free via its own notify
+    /// characteristic) since these fields are HTTP-only. Called by
+    /// DeviceStatusView's own refresh cycle; a no-op whenever deviceClient
+    /// isn't set yet (BLE-only, or WiFi not resolved yet).
     func refreshDeviceInfo() async {
         guard let client = deviceClient else { return }
         async let status = try? client.fetchStatus()
         async let version = try? client.fetchVersion()
         syncingMovieTitle = await status?.syncingMovieTitle
+        cpuTemperatureCelsius = await status?.cpuTemperatureCelsius
+        underVoltage = await status?.underVoltage
+        throttled = await status?.throttled
         deviceIPAddress = await version?.ipAddress
     }
 

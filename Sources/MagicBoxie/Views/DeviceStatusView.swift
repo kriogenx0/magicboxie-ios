@@ -208,6 +208,8 @@ struct DeviceStatusView: View {
             if let ip = bleManager.deviceIPAddress {
                 LabeledContent("IP Address", value: ip)
             }
+            temperatureRow
+            throttleWarnings
             if let title = bleManager.syncingMovieTitle {
                 LabeledContent("Downloading", value: title)
             } else if let lastCheckIn {
@@ -227,6 +229,47 @@ struct DeviceStatusView: View {
             Text("Device")
         }
         .listRowBackground(Color.appElevatedSurface)
+    }
+
+    /// Color-coded by rough Pi Zero W heat stage - real hardware
+    /// thresholds (Raspberry Pi's own soft/hard throttle points sit around
+    /// 80-85°C), not arbitrary ones: comfortable idle temps stay green,
+    /// getting warm under load is yellow, actually hot is orange, and
+    /// anywhere near where throttling actually kicks in is red.
+    @ViewBuilder
+    private var temperatureRow: some View {
+        if let temp = bleManager.cpuTemperatureCelsius {
+            HStack {
+                Text("Temperature")
+                Spacer()
+                Text(String(format: "%.0f°C", temp))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Self.temperatureColor(for: temp))
+            }
+        }
+    }
+
+    private static func temperatureColor(for celsius: Double) -> Color {
+        switch celsius {
+        case ..<50: return .green
+        case 50..<65: return .yellow
+        case 65..<80: return .orange
+        default: return .red
+        }
+    }
+
+    /// vcgencmd get_throttled's "right now" bits - both nil (device hasn't
+    /// reported yet, or vcgencmd isn't available) and false are silent;
+    /// only an actual true shows anything, since these are meant to be
+    /// alarming when they appear, not routine status.
+    @ViewBuilder
+    private var throttleWarnings: some View {
+        if bleManager.underVoltage == true {
+            compatibilityWarning("Under-voltage detected - check the power supply and cable.")
+        }
+        if bleManager.throttled == true {
+            compatibilityWarning("Device is currently throttled (thermal or power) - performance may be reduced.")
+        }
     }
 
     private var syncedMoviesSection: some View {
