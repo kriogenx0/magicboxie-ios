@@ -29,29 +29,27 @@ struct NowPlayingView: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            Spacer()
-
-            HStack {
-                // Collapses back to the mini player ONLY - playback keeps
-                // going on the device untouched, same as backgrounding any
-                // other now-playing screen. Stopping is a separate,
-                // explicit action (see stopButton below); this button used
-                // to do both, which meant there was no way to just check
-                // something else in the app without also killing what's on
-                // the TV. Sits right above the artwork rather than pinned
-                // to the very top, below the sheet's own system drag
-                // indicator (see PlayerControlsView.presentationDragIndicator).
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "chevron.down")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                }
-                Spacer()
+            // Collapses back to the mini player ONLY - playback keeps going
+            // on the device untouched, same as backgrounding any other
+            // now-playing screen. Stopping is a separate, explicit action
+            // (see stopButton below); this button used to do both, which
+            // meant there was no way to just check something else in the
+            // app without also killing what's on the TV. Centered (VStack's
+            // default alignment) and sitting directly above the artwork
+            // with no Spacer in between - a top Spacer here made the gap
+            // above it grow/shrink with however much room was left over on
+            // screen instead of staying a fixed, predictable distance below
+            // the sheet's own system drag indicator (see
+            // PlayerControlsView.presentationDragIndicator).
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "chevron.down")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
             }
-            .padding(.horizontal, 12)
+            .padding(.top, 12)
 
             ThumbnailImage(
                 primaryURL: AppConfig.deviceHTTPBaseURL.appendingPathComponent("api/movies/\(movie.id)/thumbnail"),
