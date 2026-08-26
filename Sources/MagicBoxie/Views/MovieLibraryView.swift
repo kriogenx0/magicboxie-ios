@@ -3,6 +3,7 @@ import SwiftUI
 struct MovieLibraryView: View {
     @EnvironmentObject private var bleManager: BLEManager
     @EnvironmentObject private var artworkStore: MovieArtworkStore
+    @EnvironmentObject private var webClient: MagicBoxieWebClient
 
     @Binding var path: [Movie]
     @State private var refreshSpin = 0.0
@@ -11,6 +12,13 @@ struct MovieLibraryView: View {
         VStack(spacing: 0) {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 28) {
+                    ForEach(MovieCategory.genreSections(for: bleManager.movies, genres: genreNames), id: \.genre) { section in
+                        MovieShelf(
+                            title: section.genre,
+                            movies: section.movies,
+                            onSelect: { path.append($0) }
+                        )
+                    }
                     ForEach(MovieCategory.sections(for: bleManager.movies), id: \.category.rawValue) { section in
                         MovieShelf(
                             title: section.category.rawValue,
@@ -23,6 +31,18 @@ struct MovieLibraryView: View {
             }
             .refreshable {
                 await refresh()
+            }
+            .task {
+                // Kicks off the same bulk MagicBoxie-web fetch each
+                // poster's own .task below already triggers lazily (see
+                // MovieArtworkStore.fetchIfNeeded) - but genre rows are
+                // evaluated synchronously during this view's own body, so
+                // waiting on a POSTER to scroll into view first would leave
+                // them empty on first launch even when a home server
+                // session is already available. A no-op if already fetched
+                // or not logged in.
+                guard webClient.isAuthenticated, webClient.movies.isEmpty else { return }
+                await webClient.fetchMovies()
             }
             .overlay {
                 // Not connected: explain why and offer a way to connect,
@@ -75,6 +95,18 @@ struct MovieLibraryView: View {
     private func refresh() async {
         bleManager.refreshLibrary()
         try? await Task.sleep(nanoseconds: 800_000_000)
+    }
+
+    /// Looked up directly against webClient.movies (the whole bulk-fetched
+    /// MagicBoxie-web library) rather than artworkStore.artworkByTitle -
+    /// the latter only ever gets populated per-title, lazily, as each
+    /// poster's own .task happens to run, which would leave genre rows
+    /// missing titles whose poster hasn't rendered yet. The bulk fetch
+    /// itself is the same one both this and every poster's lazy lookup
+    /// share (see MovieArtworkStore.fetchIfNeeded and this view's own
+    /// .task above).
+    private func genreNames(for movie: Movie) -> [String] {
+        webClient.movies.first { $0.name == movie.title }?.genreNames ?? []
     }
 
     private var refreshButton: some View {

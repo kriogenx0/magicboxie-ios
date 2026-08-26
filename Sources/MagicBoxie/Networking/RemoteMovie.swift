@@ -25,6 +25,12 @@ struct RemoteMovie: Decodable, Identifiable, Hashable {
     /// magicboxie-web UpdatedAt-derived tag anyway (see items_controller.go).
     private let imageTags: [String: String]?
     private let backdropImageTags: [String]?
+    /// TMDB-sourced (see magicboxie-web's internal/services/tmdb), only
+    /// present once that server has actually matched the movie - nil (not
+    /// an empty array), same "maybe absent" convention as imageTags/
+    /// backdropImageTags above, since Go's `omitempty` drops the key
+    /// entirely rather than sending `[]`.
+    private let genres: [String]?
 
     enum CodingKeys: String, CodingKey {
         case id = "Id"
@@ -37,7 +43,13 @@ struct RemoteMovie: Decodable, Identifiable, Hashable {
         case syncEnabled = "MagicBoxieSyncEnabled"
         case imageTags = "ImageTags"
         case backdropImageTags = "BackdropImageTags"
+        case genres = "Genres"
     }
+
+    /// Always an array, never nil - callers (see MovieCategory.genreSections)
+    /// don't need to know "no genres" and "not matched yet" are the same
+    /// wire-level absence.
+    var genreNames: [String] { genres ?? [] }
 
     var isReady: Bool { status == "ready" }
 

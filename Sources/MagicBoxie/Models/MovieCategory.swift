@@ -33,4 +33,28 @@ enum MovieCategory: String, CaseIterable {
             return matches.isEmpty ? nil : (category, matches)
         }
     }
+
+    /// Genre-based rows, additive to (not replacing) the duration-based
+    /// sections above - unlike those, a movie can land in more than one
+    /// row here (a kids' comedy shows up under both "Kids" and "Comedy"),
+    /// the same way Netflix's own genre rows overlap. Sourced from
+    /// MagicBoxie-web's TMDB-matched data (see RemoteMovie.genreNames),
+    /// cached in memory for the session (see MovieArtworkStore) rather
+    /// than looked up fresh - so this only ever reflects whatever's
+    /// already been fetched. A movie with no cached genre (offline, or
+    /// MagicBoxie-web was never reached this session) simply doesn't
+    /// appear in any genre row - it's still findable in the duration-based
+    /// ones above, which work with zero internet access by design.
+    static func genreSections(for movies: [Movie], genres: (Movie) -> [String]) -> [(genre: String, movies: [Movie])] {
+        var moviesByGenre: [String: [Movie]] = [:]
+        for movie in movies {
+            for genre in genres(movie) {
+                moviesByGenre[genre, default: []].append(movie)
+            }
+        }
+        return moviesByGenre.keys.sorted().map { genre in
+            let sorted = moviesByGenre[genre]!.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+            return (genre, sorted)
+        }
+    }
 }
